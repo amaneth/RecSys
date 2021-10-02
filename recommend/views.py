@@ -28,6 +28,7 @@ class RecommendArticles(APIView):
         person_id = int(person_id)
         interactions_df = pd.read_csv('recommend/files/interactions.csv')
         articles_df = pd.read_csv('recommend/files/articles.csv')
+        interactions_df.set_index('personId', inplace=True)
         popularity_df = interactions_df.groupby('contentId')['eventStrength'].sum(). \
                                 sort_values(ascending= False).reset_index()
         popularity_model = PopularityRecommender(popularity_df,articles_df)

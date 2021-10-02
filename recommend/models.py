@@ -2,7 +2,7 @@ from django.db import models
 
 # Create your models here.
 class Interaction(models.Model):
-    person_id = models.IntegerField()
+    person_id = models.CharField(max_length=90,blank=True, default='')
     content_id = models.IntegerField()
     event_strength = models.FloatField()
 class Article(models.Model):
