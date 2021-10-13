@@ -15,17 +15,31 @@ from recommend.utils.extractor import Extractor
 import pandas as pd
 from django_pandas.io import read_frame
 
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+
+
+recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
+    description='The person id', type=openapi.TYPE_INTEGER, ),
+    openapi.Parameter( 'top', in_=openapi.IN_QUERY, 
+    description='The top n recommendations to be returned', type=openapi.TYPE_INTEGER, ),
+    openapi.Parameter( 'verbose', in_=openapi.IN_QUERY, 
+    description='If true returns the deatil of the article recommended(title, url, content...)',
+    type=openapi.TYPE_INTEGER, )]
+
 
 class RecommendArticles(APIView):
-    """
-    retrieve personalized recommended articles
-    """
-    def get(self, request, person_id, format=None):
+
+    @swagger_auto_schema(manual_parameters=[id_param],security=[], responses={'400': 'Validation Error','200': ArticleSerializer})
+    def get(self, request, format=None):
         '''
-        interaction_df = read_frame(Interaction.objects.all())
-        articles_df = read_frame(Article.objects().all())
+            retrieve personalized recommended articles
         '''
-        person_id = int(person_id)
+        #interaction_df = read_frame(Interaction.objects.all())
+        #articles_df = read_frame(Article.objects().all())
+        person_id = int(request.GET['id'])
+        topn = int(request.GET['top'])
+        verbose= True if request.GET['verbose'] else False
         interactions_df = pd.read_csv('recommend/files/interactions.csv')
         articles_df = pd.read_csv('recommend/files/articles.csv')
         interactions_df.set_index('personId', inplace=True)
@@ -36,23 +50,25 @@ class RecommendArticles(APIView):
         recommendations_df = popularity_model.recommend_items(user_id=person_id,
                                 items_to_ignore= \
                                         extractor.get_items_interacted(person_id, interactions_df),\
-                                        topn=10, verbose=False)
+                                        topn=topn, verbose=verbose)
         return Response(recommendations_df)
-    '''
-    def post_interactions(self, request, format=None):
+
+    def post(self, request, format=None):
         serializer = InteractionSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def post_articles(self, request, format=None):
+class PostArticles(APIView):
+
+    def post(self, request, format=None):
         serializer = ArticleSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    '''
+
 
 
 

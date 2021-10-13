@@ -8,9 +8,9 @@ class Interaction(models.Model):
 class Article(models.Model):
     timestamp = models.IntegerField()
     content_id = models.IntegerField()
-    autor_person_id = models.IntegerField()
+    author_person_id = models.IntegerField(default =0)
     author_country = models.CharField(max_length=60, blank=True, default='')
-    url = models.CharField(max_length =60, blank=True, default ='')
+    url = models.CharField(max_length =400, blank=True, default ='')
     title = models.CharField(max_length =60, blank=True, default='')
     content = models.TextField()
 
