@@ -24,13 +24,14 @@ recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     openapi.Parameter( 'top', in_=openapi.IN_QUERY, 
     description='The top n recommendations to be returned', type=openapi.TYPE_INTEGER, ),
     openapi.Parameter( 'verbose', in_=openapi.IN_QUERY, 
-    description='If true returns the deatil of the article recommended(title, url, content...)',
-    type=openapi.TYPE_INTEGER, )]
+    description='If true returns the deatil of the articles recommended(title, url, content...)',
+    type=openapi.TYPE_BOOLEAN, )]
 
 
 class RecommendArticles(APIView):
 
-    @swagger_auto_schema(manual_parameters=[id_param],security=[], responses={'400': 'Validation Error','200': ArticleSerializer})
+    @swagger_auto_schema(manual_parameters=recommend_params,security=[],
+            responses={'400': 'Validation Error','200': ArticleSerializer})
     def get(self, request, format=None):
         '''
             retrieve personalized recommended articles
@@ -39,7 +40,7 @@ class RecommendArticles(APIView):
         #articles_df = read_frame(Article.objects().all())
         person_id = int(request.GET['id'])
         topn = int(request.GET['top'])
-        verbose= True if request.GET['verbose'] else False
+        verbose= True if request.GET['verbose']=='true' else False
         interactions_df = pd.read_csv('recommend/files/interactions.csv')
         articles_df = pd.read_csv('recommend/files/articles.csv')
         interactions_df.set_index('personId', inplace=True)

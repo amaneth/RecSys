@@ -12,7 +12,8 @@ class PopularityRecommender:
         return self.MODEL_NAME
     def recommend_items(self, user_id, items_to_ignore=[], topn=10, verbose=False):
         # Recommend the more popular itmes that the user hasn't seen yet.
-        recommendations_df = self.popularity_df[~self.popularity_df['contentId'].isin(items_to_ignore)] \
+        recommendations_df = self.popularity_df[~self.popularity_df['contentId']\
+                                .isin(items_to_ignore)] \
                                 .sort_values('eventStrength', ascending=False) \
                                 .head(topn)
         if verbose:
@@ -20,5 +21,7 @@ class PopularityRecommender:
                 raise Exception('"items_df" is required in verbose mode')
             recommendations_df = recommendations_df.merge(self.items_df, how = 'left', 
                                                           left_on = 'contentId', 
-                                                          right_on = 'contentId')[['eventStrength', 'contentId', 'title', 'url', 'lang']]
+                                                          right_on = 'contentId')\
+                                                          [['eventStrength', 'contentId', 
+                                                              'title', 'url', 'lang']]
         return recommendations_df
