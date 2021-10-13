@@ -1,5 +1,6 @@
 from django.db import models
 
+#TODO content id as foreign key
 # Create your models here.
 class Interaction(models.Model):
     person_id = models.CharField(max_length=90,blank=True, default='')

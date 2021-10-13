@@ -23,5 +23,5 @@ class PopularityRecommender:
                                                           left_on = 'contentId', 
                                                           right_on = 'contentId')\
                                                           [['eventStrength', 'contentId', 
-                                                              'title', 'url', 'lang']]
+                                                              'title', 'url']]
         return recommendations_df

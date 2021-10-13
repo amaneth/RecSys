@@ -1,3 +1,6 @@
+#postgresql data
+/data
+
 #sql database files
 *.sqlite3
 

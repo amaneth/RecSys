@@ -54,6 +54,15 @@ class RecommendArticles(APIView):
                                         topn=topn, verbose=verbose)
         return Response(recommendations_df)
 
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'person_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The person id'),
+            'content_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The article id'),
+            'event_strength': openapi.Schema(type=openapi.TYPE_INTEGER,\
+                    description='The article strength'),
+
+        }))
     def post(self, request, format=None):
         serializer = InteractionSerializer(data=request.data)
         if serializer.is_valid():
@@ -63,6 +72,23 @@ class RecommendArticles(APIView):
 
 class PostArticles(APIView):
 
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            'timestamp': openapi.Schema(type=openapi.TYPE_INTEGER,
+                description='The time the article posted'),
+            'content_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The article id'),
+            'author_person_id': openapi.Schema(type=openapi.TYPE_INTEGER,
+                    description='The article\'s author id'),
+            'author_country': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s author country'),
+            'url': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s URL'),
+            'title': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s title'),
+            'content': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s content'),
+        }))
     def post(self, request, format=None):
         serializer = ArticleSerializer(data=request.data)
         if serializer.is_valid():
