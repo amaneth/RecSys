@@ -10,8 +10,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from recommend.utils.popularity import PopularityRecommender
+from recommend.utils.methods.popularity import PopularityRecommender
 from recommend.utils.extractor import Extractor
+from recommend.utils.models.popularity import PopularityModel
 import pandas as pd
 from django_pandas.io import read_frame
 
@@ -36,19 +37,18 @@ class RecommendArticles(APIView):
         '''
             retrieve personalized recommended articles
         '''
-        #interaction_df = read_frame(Interaction.objects.all())
-        #articles_df = read_frame(Article.objects().all())
         person_id = int(request.GET['id'])
         topn = int(request.GET['top'])
         verbose= True if request.GET['verbose']=='true' else False
+        #interaction_df = read_frame(Interaction.objects.all())
+        #articles_df = read_frame(Article.objects().all())
         interactions_df = pd.read_csv('recommend/files/interactions.csv')
         articles_df = pd.read_csv('recommend/files/articles.csv')
         interactions_df.set_index('personId', inplace=True)
-        popularity_df = interactions_df.groupby('contentId')['eventStrength'].sum(). \
-                                sort_values(ascending= False).reset_index()
-        popularity_model = PopularityRecommender(popularity_df,articles_df)
+        popularity_model = PopularityModel()
+        recommender = PopularityRecommender(popularity_model.model(),articles_df)
         extractor = Extractor()
-        recommendations_df = popularity_model.recommend_items(user_id=person_id,
+        recommendations_df = recommender.recommend_items(user_id=person_id,
                                 items_to_ignore= \
                                         extractor.get_items_interacted(person_id, interactions_df),\
                                         topn=topn, verbose=verbose)
@@ -61,7 +61,6 @@ class RecommendArticles(APIView):
             'content_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The article id'),
             'event_strength': openapi.Schema(type=openapi.TYPE_INTEGER,\
                     description='The article strength'),
-
         }))
     def post(self, request, format=None):
         serializer = InteractionSerializer(data=request.data)
