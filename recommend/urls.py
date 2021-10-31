@@ -22,8 +22,11 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path('recommend', views.RecommendArticles.as_view()),
+    path('recommendations', views.RecommendArticles.as_view()),
     path('articles', views.PostArticles.as_view()),
+    path('interactions', views.PostArticles.as_view()),
+    path('auto-relearn', views.AutoRelearn.as_view()),
+    path('relearn', views.Relearn.as_view()),
     #path('recommend/articles', views.RecommendArticles.as_view({'post':'post_articles'})),
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),

@@ -2,7 +2,10 @@ from django.shortcuts import render
 
 # Create your views here.
 from recommend.models import Article
+from recommend.models import Popularity
 from recommend.models import Interaction
+from django_celery_beat.models import PeriodicTask, IntervalSchedule
+
 from recommend.serializers import ArticleSerializer
 from recommend.serializers import InteractionSerializer
 from django.http import Http404
@@ -12,7 +15,10 @@ from rest_framework import status
 
 from recommend.utils.methods.popularity import PopularityRecommender
 from recommend.utils.extractor import Extractor
-from recommend.utils.models.popularity import PopularityModel
+from recommend.tasks import popularity_relearn
+from recommend.tasks import content_based_relearn
+from recommend.tasks import collaborative_relearn
+
 import pandas as pd
 from django_pandas.io import read_frame
 
@@ -27,6 +33,18 @@ recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     openapi.Parameter( 'verbose', in_=openapi.IN_QUERY, 
     description='If true returns the deatil of the articles recommended(title, url, content...)',
     type=openapi.TYPE_BOOLEAN, )]
+
+model_params = [openapi.Parameter( 'popularity', in_=openapi.IN_QUERY,
+        description='if set true auto relearn for popularity model will be on',
+        type=openapi.TYPE_BOOLEAN, ),
+        openapi.Parameter( 'content-based', in_=openapi.IN_QUERY,
+        description='if set true auto relearn for content based model will be on',
+        type=openapi.TYPE_BOOLEAN, ),
+        openapi.Parameter( 'collaborative', in_=openapi.IN_QUERY,
+        description='if set true auto relearn for collaborative model will be on',
+        type=openapi.TYPE_BOOLEAN, ),
+        ]
+
 
 
 class RecommendArticles(APIView):
@@ -45,8 +63,8 @@ class RecommendArticles(APIView):
         interactions_df = pd.read_csv('recommend/files/interactions.csv')
         articles_df = pd.read_csv('recommend/files/articles.csv')
         interactions_df.set_index('personId', inplace=True)
-        popularity_model = PopularityModel()
-        recommender = PopularityRecommender(popularity_model.model(),articles_df)
+        popularity_df = read_frame(Popularity.objects.all())
+        recommender = PopularityRecommender(popularity_df,articles_df)
         extractor = Extractor()
         recommendations_df = recommender.recommend_items(user_id=person_id,
                                 items_to_ignore= \
@@ -54,6 +72,8 @@ class RecommendArticles(APIView):
                                         topn=topn, verbose=verbose)
         return Response(recommendations_df)
 
+    
+class PostInteractions(APIView):
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
@@ -94,6 +114,46 @@ class PostArticles(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class Relearn(APIView):
+    @swagger_auto_schema(manual_parameters=model_params,security=[],
+            responses={'400': 'Validation Error','200': ArticleSerializer})
+    def get(self, request):
+            relearn_popularity = True if request.GET['popularity']=='true' else False
+            relearn_content_based = True if request.GET['content-based']=='true' else False
+            relearn_collaborative = True if request.GET['collaborative']=='true' else False
+            if relearn_popularity:
+                popularity_relearn.delay()
+            if relearn_content_based:
+                content_based_relearn.delay()
+            if relearn_collaborative:
+                collaborative_relearn.delay()
+            return Response({'Relearn poularity':str(relearn_popularity),
+                            'Relearn content based':str(relearn_content_based),
+                            'Relearn collaborative':str(relearn_collaborative)})
+
+
+
+class AutoRelearn(APIView):
+    @swagger_auto_schema(manual_parameters=model_params,security=[],
+            responses={'400': 'Validation Error','200': ArticleSerializer})
+    def get(self, request):
+            start_popularity = True if request.GET['popularity']=='true' else False
+            start_content_based = True if request.GET['content-based']=='true' else False
+            start_collaborative = True if request.GET['collaborative']=='true' else False
+            schedule_popularity = PeriodicTask.objects.get(name='relearn popularity')
+            schedule_content_based = PeriodicTask.objects.get(name='relearn content based')
+            schedule_collaborative = PeriodicTask.objects.get(name='relearn collaborative')
+            schedule_popularity.enabled = start_popularity
+            schedule_content_based.enabled = start_content_based
+            schedule_collaborative.enabled = start_collaborative
+            schedule_popularity.save()
+            schedule_content_based.save()
+            schedule_collaborative.save()
+            return Response({'enable poularity':str(start_popularity),
+                            'enable content based':str(start_content_based), 
+                            'enable collaborative':str(start_collaborative)})
+
 
 
 

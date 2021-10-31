@@ -3,22 +3,47 @@ version: "3.9"
 services:
   db:
     image: postgres
-    volumes:
-      - ./data/db:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+      #volumes:
+      #  - ./data/db:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=recommend
       - POSTGRES_USER=aman
-      - POSTGRES_PASSWORD=Ihatepasswords@1234
+      - POSTGRES_PASSWORD=Ihatepasswords
   recommender:
     build: .
     command: >
       bash -c
-      "python manage.py migrate &&
+      "python manage.py makemigrations && python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000"
-    volumes:
-            - .:/recommender
     ports:
       - "8000:8000"
     depends_on:
       - db
+      - memcached
+  redis:
+    image: redis:alpine
+  celery:
+    build: .
+    restart: always
+    command: celery -A recommender worker --loglevel=debug
+    depends_on:
+       - redis
+  celery-beat:
+    build: .
+    command: >
+       bash -c
+        "python manage.py migrate && celery -A recommender beat -l debug --scheduler django_celery_beat.schedulers:DatabaseScheduler"
+    depends_on:
+       - celery
+       - redis
+       - db
+       - memcached
+  memcached:
+    image: memcached
+    ports:
+       - "11213:11211"
+    command: memcached -vv
+
 

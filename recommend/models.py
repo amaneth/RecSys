@@ -6,6 +6,7 @@ class Interaction(models.Model):
     person_id = models.CharField(max_length=90,blank=True, default='')
     content_id = models.IntegerField()
     event_strength = models.FloatField()
+
 class Article(models.Model):
     timestamp = models.IntegerField()
     content_id = models.IntegerField()
@@ -14,4 +15,8 @@ class Article(models.Model):
     url = models.CharField(max_length =400, blank=True, default ='')
     title = models.CharField(max_length =60, blank=True, default='')
     content = models.TextField()
+
+class Popularity(models.Model):
+    contentId = models.IntegerField(primary_key=True)
+    eventStrength = models.IntegerField()
 

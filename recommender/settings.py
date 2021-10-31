@@ -40,7 +40,16 @@ INSTALLED_APPS = [
     'rest_framework',
     'drf_yasg',
     'recommend.apps.RecommendConfig',
+    'django_celery_beat',
 ]
+
+CACHES = {
+  'default' : {
+     'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+     'LOCATION' : 'memcached:11211',
+  }
+}
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -81,7 +90,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'recommend',
         'USER': 'aman',
-        'PASSWORD': 'Ihatepasswords@1234',
+        'PASSWORD': 'Ihatepasswords',
         'HOST':'db',
         'PORT': 5432,
     }
@@ -130,3 +139,4 @@ STATIC_URL = '/static/'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+CELERY_BROKER_URL = 'redis://redis:6379'
