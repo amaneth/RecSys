@@ -13,6 +13,8 @@ services:
       - POSTGRES_PASSWORD=Ihatepasswords
   recommender:
     build: .
+    volumes:
+      - .:/recommender 
     command: >
       bash -c
       "python manage.py makemigrations && python manage.py migrate &&
@@ -26,7 +28,6 @@ services:
     image: redis:alpine
   celery:
     build: .
-    restart: always
     command: celery -A recommender worker --loglevel=debug
     depends_on:
        - redis

@@ -10,9 +10,10 @@ logger = get_task_logger(__name__)
 
 LOCK_EXPIRE = 60 * 10
 
+model=MlModels()
+
 @shared_task
 def popularity_relearn():
-    model=MlModels()
     acquired = cache.add("popularity","popularity",LOCK_EXPIRE)
     logger.debug("Popularity C----A---C---H--ED is : %s", acquired)
     if acquired:
@@ -23,18 +24,16 @@ def popularity_relearn():
 
 @shared_task
 def content_based_relearn():
-    model=MlModels()
     acquired = cache.add("content-based","content-based",LOCK_EXPIRE)
     logger.debug("Content based C----A---C---H--ED is : %s", acquired)
     if acquired:
         logger.info('Content based model is relearning...')
-        #TODO call the content-based model
+        model.build_users_profiles()
     else:
         logger.debug('Relearning the content based model is already started by another worker')
 
 @shared_task
 def collaborative_relearn():
-    model=MlModels()
     acquired = cache.add("collaborative","collaborative",LOCK_EXPIRE)
     logger.debug("Collaborative C----A---C---H--ED is : %s", acquired)
     if acquired:

@@ -1,5 +1,5 @@
 from django.db import models
-
+from jsonfield import JSONField
 #TODO content id as foreign key
 # Create your models here.
 class Interaction(models.Model):
@@ -20,3 +20,5 @@ class Popularity(models.Model):
     contentId = models.IntegerField(primary_key=True)
     eventStrength = models.IntegerField()
 
+class UserProfile(models.Model):
+    profile = JSONField()

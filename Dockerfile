@@ -7,5 +7,6 @@ RUN apt-get update
 RUN apt-get -y install gcc
 RUN pip install --upgrade pip
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt --timeout 600
+RUN [ "python", "-c", "import nltk; nltk.download('stopwords')" ]
 COPY . /recommender

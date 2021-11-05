@@ -1,9 +1,6 @@
 class PopularityRecommender:
     MODEL_NAME = 'Popularity'
-    '''
-    item_popularity_df = interactions_full_df.groupby('contentId')['eventType'].sum().\
-                        sort_values(ascending = False).reset_index()
-    '''
+    
     def __init__(self, popularity_df, items_df=None):
         self.popularity_df = popularity_df
         self.items_df = items_df
