@@ -4,7 +4,7 @@ services:
   db:
     image: postgres
     ports:
-      - '5431:5432'
+      - '5435:5432'
       #volumes:
       #  - ./data/db:/var/lib/postgresql/data
     environment:
@@ -20,7 +20,7 @@ services:
       "python manage.py makemigrations && python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000"
     ports:
-      - "8000:8000"
+      - "8020:8000"
     depends_on:
       - db
       - memcached
