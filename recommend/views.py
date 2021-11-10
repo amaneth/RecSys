@@ -98,13 +98,14 @@ class RecommendArticles(APIView):
 
     
 class PostInteractions(APIView):
+
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
             'person_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The person id'),
             'content_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The article id'),
-            'event_strength': openapi.Schema(type=openapi.TYPE_INTEGER,\
-                    description='The article strength'),
+            'event_type': openapi.Schema(type=openapi.TYPE_STRING,\
+                    description='The interaction type'),
         }))
     def post(self, request, format=None):
         serializer = InteractionSerializer(data=request.data)
