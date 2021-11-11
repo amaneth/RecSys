@@ -50,7 +50,7 @@ class MlModels:
         self.tfidf_matrix = None
 
     def popularity(self):
-        interactions_df.set_index('personId', inplace=True)
+        self.interactions_df.set_index('personId', inplace=True)
         popularity_df = self.interactions_df.groupby('contentId')['eventStrength'].sum(). \
                             sort_values(ascending= False).reset_index()
 
