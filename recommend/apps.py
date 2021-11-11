@@ -4,7 +4,7 @@ from django.db.models.signals import post_migrate
 
 def schedule_popularity(sender, **kwargs):
     from django_celery_beat.models import PeriodicTask, IntervalSchedule
-    schedule, created = IntervalSchedule.objects.get_or_create(every=10,
+    schedule, created = IntervalSchedule.objects.get_or_create(every=300,
                 period=IntervalSchedule.SECONDS,
                 )
     PeriodicTask.objects.update_or_create(
@@ -13,7 +13,7 @@ def schedule_popularity(sender, **kwargs):
                 )
 def schedule_content_based(sender, **kwargs):
     from django_celery_beat.models import PeriodicTask, IntervalSchedule
-    schedule, created = IntervalSchedule.objects.get_or_create(every=10,
+    schedule, created = IntervalSchedule.objects.get_or_create(every=300,
                 period=IntervalSchedule.SECONDS,
                 )
     PeriodicTask.objects.update_or_create(
@@ -22,7 +22,7 @@ def schedule_content_based(sender, **kwargs):
                 )
 def schedule_collaborative(sender, **kwargs):
     from django_celery_beat.models import PeriodicTask, IntervalSchedule
-    schedule, created = IntervalSchedule.objects.get_or_create(every=10,
+    schedule, created = IntervalSchedule.objects.get_or_create(every=300,
                 period=IntervalSchedule.SECONDS,
                 )
     PeriodicTask.objects.update_or_create(
