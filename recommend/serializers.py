@@ -4,7 +4,7 @@ from recommend.models import Article, Interaction, UserProfile
 class InteractionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Interaction
-        fields = ['person_id', 'content_id', 'event_strength']
+        fields = ['person_id', 'content_id', 'event_type']
 class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
