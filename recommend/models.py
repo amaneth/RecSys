@@ -5,7 +5,7 @@ from jsonfield import JSONField
 class Interaction(models.Model):
     person_id = models.CharField(max_length=90,blank=True, default='')
     content_id = models.IntegerField()
-    event_strength = models.FloatField()
+    event_type = models.CharField(max_length=30, blank=True, default='')
 
 class Article(models.Model):
     timestamp = models.IntegerField()
