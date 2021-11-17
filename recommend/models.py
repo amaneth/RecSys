@@ -7,6 +7,9 @@ class Interaction(models.Model):
     content_id = models.IntegerField()
     event_type = models.CharField(max_length=30, blank=True, default='')
 
+    class Meta:
+        unique_together= ('person_id','content_id','event_type',)
+
 class Article(models.Model):
     timestamp = models.IntegerField()
     content_id = models.IntegerField()
