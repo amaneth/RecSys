@@ -9,6 +9,7 @@ from django_celery_beat.models import PeriodicTask, IntervalSchedule
 from recommend.serializers import ArticleSerializer
 from recommend.serializers import InteractionSerializer
 from django.http import Http404
+from django.db import IntegrityError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -110,7 +111,11 @@ class PostInteractions(APIView):
     def post(self, request, format=None):
         serializer = InteractionSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            try:
+                serializer.save()
+            except IntegrityError:
+                pass
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
