@@ -14,10 +14,10 @@ class InteractionSerializer(serializers.ModelSerializer):
                     & Q(event_type='like'))
             q.delete()
 
-        if event=='unpositive' or event == 'negative':
+        if event=='unpositive' or event == 'react-negative':
             q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
                     & Q(content_id=validated_data.get('content_id'))\
-                    & Q(event_type='positive'))
+                    & Q(event_type='react-positive'))
             q.delete()
 
         if event=='undislike':
@@ -29,13 +29,14 @@ class InteractionSerializer(serializers.ModelSerializer):
         if event=='unnegative':
             q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
                     & Q(content_id=validated_data.get('content_id'))\
-                    & Q(event_type='negative'))
+                    & Q(event_type='react-negative'))
             q.delete()
 
         if event=='uncomment':
             q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
                     & Q(content_id=validated_data.get('content_id'))\
-                    & Q(event_type='comment'))
+                    & (Q(event_type='comment-best')|Q(event_type='comment-good')|\
+                    Q(event_type='comment-average')))
             q.delete()
         if event =='like':
             q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
@@ -43,13 +44,14 @@ class InteractionSerializer(serializers.ModelSerializer):
                 & Q(event_type='dislike'))
             q.delete()
         
-        if event =='positive':
+        if event =='react-positive':
             q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
                 & Q(content_id=validated_data.get('content_id'))\
-                & Q(event_type='negative'))
+                & Q(event_type='react-negative'))
             q.delete()
 
-        if event in ['like','positive','negative', 'dislike', 'comment']:
+        if event in ['like','react-positive','react-negative', 'dislike', 'comment-best', 
+                        'comment-average', 'comment-good']:
             
             return Interaction.objects.create(**validated_data)
 
