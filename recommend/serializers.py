@@ -67,6 +67,16 @@ class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
         fields = ['timestamp', 'content_id', 'author_person_id', 'author_country', 'url', 'title', 'content']
+    def create(self, validated_data):
+        article, created = Article.objects.update_or_create(content_id= validated_data.get('content_id', None),
+                            defaults={'timestamp': validated_data.get('timestamp', None),
+                                    'author_person_id': validated_data.get('author_person_id', None),
+                                    'author_country':validated_data.get('author_country', None),
+                                    'url': validated_data.get('url', None),
+                                    'title': validated_data.get('title', None),
+                                    'content': validated_data.get('content', None)})
+        return article
+
 
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
