@@ -76,11 +76,11 @@ class RecommendArticles(APIView):
         collaborative_recommendation = True if request.GET['collaborative']=='true' else False
         enable_rec = [popularity_recommendation, content_based_recommendation,
                       collaborative_recommendation]
-        #interaction_df = read_frame(Interaction.objects.all())
+        interactions_df = read_frame(Interaction.objects.all())
         #articles_df = read_frame(Article.objects().all())
-        interactions_df = pd.read_csv('recommend/files/interactions.csv')
+        #interactions_df = pd.read_csv('recommend/files/interactions.csv')
         articles_df = pd.read_csv('recommend/files/articles.csv')
-        interactions_df.set_index('personId', inplace=True)
+        interactions_df.set_index('person_id', inplace=True)
         extractor = Extractor()
         if enable_rec.count(True)>1:
             pass # TODO create instance of hybrid recommender
