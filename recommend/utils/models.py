@@ -53,7 +53,8 @@ class MlModels:
         self.interactions_df['eventStrength'] = self.interactions_df['event_type']\
                 .apply(lambda x: self.event_type_strength[x])
         self.interactions_df = self.interactions_df.groupby(['content_id', 'person_id'])\
-                            ['eventStrength'].sum().apply(lambda x : math.log(1+x, 2)).reset_index()
+                            ['eventStrength'].sum().apply(lambda x : math.log(1+x, 2) if x>=0\
+                            else -math.log(1+abs(x), 2) ).reset_index()
         #self.interactions_df = pd.read_csv('recommend/files/interactions.csv')
         #articles_df = read_frame(Article.objects().all())
         self.articles_df = pd.read_csv('recommend/files/articles.csv')
