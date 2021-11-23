@@ -11,7 +11,7 @@ class ContentBasedRecommender:
     
     def __init__(self, items_df=None):
         self.items_df = items_df
-        self.item_ids = items_df['contentId'].tolist()
+        self.item_ids = items_df['content_id'].tolist()
         with open('userprofile.pickle', 'rb') as handle:
             self.user_profiles = pickle.load(handle)
         self.tfidf_matrix = sparse.load_npz("tfidf.npz")
@@ -36,17 +36,17 @@ class ContentBasedRecommender:
         similar_items_filtered = list(filter(lambda x: x[0] not in items_to_ignore, similar_items))
         
         recommendations_df = pd.DataFrame(similar_items_filtered,
-                columns=['contentId', 'recStrength']).head(topn)
+                columns=['content_id', 'recStrength']).head(topn)
 
         if verbose:
             if self.items_df is None:
                 raise Exception('"items_df" is required in verbose mode')
 
             recommendations_df = recommendations_df.merge(self.items_df, how = 'left', 
-                                                          left_on = 'contentId', 
-                                                          right_on = 'contentId')\
+                                                          left_on = 'content_id', 
+                                                          right_on = 'content_id')\
                                                           [['recStrength',
-                                                              'contentId',
+                                                              'content_id',
                                                               'title',
                                                               'url',
                                                               'lang']]
