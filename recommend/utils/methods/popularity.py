@@ -17,8 +17,8 @@ class PopularityRecommender:
             if self.items_df is None:
                 raise Exception('"items_df" is required in verbose mode')
             recommendations_df = recommendations_df.merge(self.items_df, how = 'left', 
-                                                          left_on = 'contentId', 
-                                                          right_on = 'contentId')\
-                                                          [['eventStrength', 'contentId', 
+                                                          left_on = 'content_id', 
+                                                          right_on = 'content_id')\
+                                                          [['eventStrength', 'content_id', 
                                                               'title', 'url']]
         return recommendations_df
