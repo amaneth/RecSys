@@ -77,9 +77,9 @@ class RecommendArticles(APIView):
         enable_rec = [popularity_recommendation, content_based_recommendation,
                       collaborative_recommendation]
         interactions_df = read_frame(Interaction.objects.all())
-        #articles_df = read_frame(Article.objects().all())
+        articles_df = read_frame(Article.objects.all())
         #interactions_df = pd.read_csv('recommend/files/interactions.csv')
-        articles_df = pd.read_csv('recommend/files/articles.csv')
+        #articles_df = pd.read_csv('recommend/files/articles.csv')
         interactions_df.set_index('person_id', inplace=True)
         extractor = Extractor()
         if enable_rec.count(True)>1:
