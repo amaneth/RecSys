@@ -9,7 +9,7 @@ class PopularityRecommender:
         return self.MODEL_NAME
     def recommend_items(self, user_id, items_to_ignore=[], topn=10, verbose=False):
         # Recommend the more popular itmes that the user hasn't seen yet.
-        recommendations_df = self.popularity_df[~self.popularity_df['contentId']\
+        recommendations_df = self.popularity_df[~self.popularity_df['content_id']\
                                 .isin(items_to_ignore)] \
                                 .sort_values('eventStrength', ascending=False) \
                                 .head(topn)

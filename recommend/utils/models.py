@@ -1,10 +1,12 @@
 import pandas as pd
 from django.conf import settings
 from recommend.models import Popularity
+from recommend.models import Interaction
 from recommend.serializers import UserProfileSerializer
 from sqlalchemy import create_engine
 from celery.utils.log import get_task_logger
 from django.core.cache import cache
+from django_pandas.io import read_frame
 
 import pickle
 import numpy as np
@@ -40,8 +42,19 @@ logger.addHandler(loghandle)
 class MlModels:
     def __init__(self):
         logger.info("Initializing building models...")
-        #interaction_df = read_frame(Interaction.objects.all())
-        self.interactions_df = pd.read_csv('recommend/files/interactions.csv')
+        self.interactions_df = read_frame(Interaction.objects.all())
+        self.event_type_strength= {'like':1.0,
+                'dislike':-1.0,
+                'react-positive':1.5,
+                'react-negative':-1.5,
+                'comment-best':3.0,
+                'comment-average':2.5, 
+                'comment-good':2.0}
+        self.interactions_df['eventStrength'] = self.interactions_df['event_type']\
+                .apply(lambda x: self.event_type_strength[x])
+        self.interactions_df = self.interactions_df.groupby(['content_id', 'person_id'])\
+                            ['eventStrength'].sum().apply(lambda x : math.log(1+x, 2)).reset_index()
+        #self.interactions_df = pd.read_csv('recommend/files/interactions.csv')
         #articles_df = read_frame(Article.objects().all())
         self.articles_df = pd.read_csv('recommend/files/articles.csv')
         #interaction_train_df = train_test_split(self.interactions_df)                    
@@ -50,8 +63,8 @@ class MlModels:
         self.tfidf_matrix = None
 
     def popularity(self):
-        self.interactions_df.set_index('personId', inplace=True)
-        popularity_df = self.interactions_df.groupby('contentId')['eventStrength'].sum(). \
+        self.interactions_df.set_index('person_id', inplace=True)
+        popularity_df = self.interactions_df.groupby('content_id')['eventStrength'].sum(). \
                             sort_values(ascending= False).reset_index()
 
         user = settings.DATABASES['default']['USER']

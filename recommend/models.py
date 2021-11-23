@@ -3,7 +3,7 @@ from jsonfield import JSONField
 #TODO content id as foreign key
 # Create your models here.
 class Interaction(models.Model):
-    person_id = models.CharField(max_length=90,blank=True, default='')
+    person_id = models.IntegerField()
     content_id = models.IntegerField()
     event_type = models.CharField(max_length=30, blank=True, default='')
 
@@ -20,7 +20,7 @@ class Article(models.Model):
     content = models.TextField()
 
 class Popularity(models.Model):
-    contentId = models.IntegerField(primary_key=True)
+    content_id = models.IntegerField(primary_key=True)
     eventStrength = models.IntegerField()
 
 class UserProfile(models.Model):
