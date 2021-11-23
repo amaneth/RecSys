@@ -2,6 +2,7 @@ import pandas as pd
 from django.conf import settings
 from recommend.models import Popularity
 from recommend.models import Interaction
+from recommend.models import Article
 from recommend.serializers import UserProfileSerializer
 from sqlalchemy import create_engine
 from celery.utils.log import get_task_logger
@@ -56,11 +57,12 @@ class MlModels:
                             ['eventStrength'].sum().apply(lambda x : math.log(1+x, 2) if x>=0\
                             else -math.log(1+abs(x), 2) ).reset_index()
         #self.interactions_df = pd.read_csv('recommend/files/interactions.csv')
-        #articles_df = read_frame(Article.objects().all())
-        self.articles_df = pd.read_csv('recommend/files/articles.csv')
+        self.articles_df = read_frame(Article.objects.all())
+        #self.articles_df = pd.read_csv('recommend/files/articles.csv')
         #interaction_train_df = train_test_split(self.interactions_df)                    
-        self.interactions_train_df = pd.read_csv('recommend/files/interactions_train.csv')
-        self.item_ids = self.articles_df['contentId'].tolist()
+        #self.interactions_train_df = pd.read_csv('recommend/files/interactions_train.csv')
+        self.interactions_train_df = self.interactions_df
+        self.item_ids = self.articles_df['content_id'].tolist()
         self.tfidf_matrix = None
 
     def popularity(self):
@@ -91,7 +93,7 @@ class MlModels:
                             max_features=5000,
                             stop_words=stopwords_list)
         self.tfidf_matrix = vectorizer.fit_transform(self.articles_df['title']\
-                +""+ self.articles_df['text'])
+                +""+ self.articles_df['content'])
         sparse.save_npz("tfidf.npz", self.tfidf_matrix)
 
     def get_item_profile(self, item_id):
@@ -106,7 +108,7 @@ class MlModels:
         return item_profiles
     def build_users_profile(self, person_id, interactions_indexed_df):
         interactions_person_df = interactions_indexed_df.loc[person_id]
-        user_item_profiles = self.get_item_profiles(interactions_person_df['contentId'])
+        user_item_profiles = self.get_item_profiles(interactions_person_df['content_id'])
         user_item_strengths = np.array(interactions_person_df['eventStrength']).reshape(-1,1)
         #Weighted average of item profiles by interaction stength 
         user_item_strengths_weighted_avg = np.sum(user_item_profiles.multiply(user_item_strengths),
@@ -116,9 +118,9 @@ class MlModels:
     def build_users_profiles(self):
         logger.info("Building user profile")
         self.tfidf()
-        interactions_indexed_df = self.interactions_train_df[self.interactions_train_df['contentId']\
-                                                       .isin(self.articles_df['contentId'])]\
-                                                       .set_index('personId')
+        interactions_indexed_df = self.interactions_train_df[self.interactions_train_df['content_id']\
+                                                       .isin(self.articles_df['content_id'])]\
+                                                       .set_index('person_id')
         logger.info("Set index for interaction_ df is done...")
         user_profiles = {}
         for person_id in interactions_indexed_df.index.unique():
