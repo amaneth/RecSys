@@ -17,11 +17,13 @@ from rest_framework import status
 from recommend.utils.methods.popularity import PopularityRecommender
 from recommend.utils.methods.contentive import ContentBasedRecommender
 from recommend.utils.extractor import Extractor
+from recommend.utils.models import MlModels
 from recommend.tasks import popularity_relearn
 from recommend.tasks import content_based_relearn
 from recommend.tasks import collaborative_relearn
 
 import pandas as pd
+import pickle
 from django_pandas.io import read_frame
 
 from drf_yasg import openapi
@@ -56,6 +58,11 @@ model_params = [openapi.Parameter( 'popularity', in_=openapi.IN_QUERY,
         description='if set true auto relearn for collaborative model will be on',
         type=openapi.TYPE_BOOLEAN, ),
         ]
+profile_param = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
+    description='The person id', type=openapi.TYPE_INTEGER, ),
+    openapi.Parameter( 'top', in_=openapi.IN_QUERY,
+    description='top n profiles of the user to be returned', type=openapi.TYPE_INTEGER, ),
+]
 
 
 
@@ -184,6 +191,21 @@ class AutoRelearn(APIView):
                             'enable content based':str(start_content_based), 
                             'enable collaborative':str(start_collaborative)})
 
+class ShowUserProfile(APIView):
+
+    @swagger_auto_schema(manual_parameters=profile_param,security=[],
+            responses={'400': 'Validation Error','200': ArticleSerializer})
+    def get(self, request):
+        person_id = int(request.GET['id'])
+        topn = int(request.GET['top'])
+        with open('featurenames.pickle', 'rb') as handle:
+            tfidf_feature_names = pickle.load(handle) 
+        with open('userprofile.pickle', 'rb') as handle:
+            user_profiles = pickle.load(handle)
+        user_profile = user_profiles[person_id]
+        user_profile_sorted =sorted(zip(tfidf_feature_names, 
+            user_profiles[person_id].flatten().tolist()), key = lambda x: -x[1])[:topn]
+        return Response({key:val for key, val in user_profile_sorted})
 
 
 
