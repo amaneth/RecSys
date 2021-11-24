@@ -27,6 +27,7 @@ urlpatterns = [
     path('interactions', views.PostInteractions.as_view()),
     path('auto-relearn', views.AutoRelearn.as_view()),
     path('relearn', views.Relearn.as_view()),
+    path('profile', views.ShowUserProfile.as_view()),
     #path('recommend/articles', views.RecommendArticles.as_view({'post':'post_articles'})),
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
