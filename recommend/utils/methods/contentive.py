@@ -11,7 +11,8 @@ class ContentBasedRecommender:
     
     def __init__(self, items_df=None):
         self.items_df = items_df
-        self.item_ids = items_df['content_id'].tolist()
+        with open('itemids.pickle', 'rb') as handle:
+            self.item_ids=pickle.load(handle)
         with open('userprofile.pickle', 'rb') as handle:
             self.user_profiles = pickle.load(handle)
         self.tfidf_matrix = sparse.load_npz("tfidf.npz")
@@ -48,8 +49,7 @@ class ContentBasedRecommender:
                                                           [['recStrength',
                                                               'content_id',
                                                               'title',
-                                                              'url',
-                                                              'lang']]
+                                                              'url']]
 
 
         return recommendations_df
