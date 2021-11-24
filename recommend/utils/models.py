@@ -94,6 +94,11 @@ class MlModels:
                             stop_words=stopwords_list)
         self.tfidf_matrix = vectorizer.fit_transform(self.articles_df['title']\
                 +""+ self.articles_df['content'])
+        tfidf_feature_names = vectorizer.get_feature_names()
+        with open('featurenames.pickle', 'wb') as handle:
+            pickle.dump(tfidf_feature_names, handle, protocol= pickle.HIGHEST_PROTOCOL)
+        with open('itemids.pickle', 'wb') as handle:
+            pickle.dump(self.item_ids, handle, protocol = pickle.HIGHEST_PROTOCOL)
         sparse.save_npz("tfidf.npz", self.tfidf_matrix)
 
     def get_item_profile(self, item_id):
@@ -103,6 +108,8 @@ class MlModels:
         return item_profile
     def get_item_profiles(self, ids):
         logger.info("building items' profile")
+        if isinstance(ids, np.floating):
+            ids = [ids]
         item_profiles_list = [self.get_item_profile(x) for x in ids]
         item_profiles = scipy.sparse.vstack(item_profiles_list)
         return item_profiles
