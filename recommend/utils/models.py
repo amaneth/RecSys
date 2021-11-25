@@ -44,7 +44,8 @@ class MlModels:
     def __init__(self):
         logger.info("Initializing building models...")
         self.interactions_df = read_frame(Interaction.objects.all())
-        self.event_type_strength= {'like':1.0,
+        self.event_type_strength= {'view': 0.5,
+                'like':1.0,
                 'dislike':-1.0,
                 'react-positive':1.5,
                 'react-negative':-1.5,
