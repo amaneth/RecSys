@@ -51,7 +51,7 @@ class InteractionSerializer(serializers.ModelSerializer):
             q.delete()
 
         if event in ['like','react-positive','react-negative', 'dislike', 'comment-best', 
-                        'comment-average', 'comment-good']:
+                        'comment-average', 'comment-good', 'view']:
             
             return Interaction.objects.create(**validated_data)
 
