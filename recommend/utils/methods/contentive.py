@@ -1,4 +1,3 @@
-from recommend.models import UserProfile
 from django_pandas.io import read_frame
 import pickle
 from scipy import sparse
