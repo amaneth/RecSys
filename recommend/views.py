@@ -31,7 +31,7 @@ from drf_yasg.utils import swagger_auto_schema
 
 
 recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
-    description='The person id', type=openapi.TYPE_INTEGER, ),
+    description='The person id', type=openapi.TYPE_STRING, ),
     openapi.Parameter( 'top', in_=openapi.IN_QUERY, 
     description='The top n recommendations to be returned', type=openapi.TYPE_INTEGER, ),
     openapi.Parameter( 'verbose', in_=openapi.IN_QUERY, 
@@ -74,7 +74,7 @@ class RecommendArticles(APIView):
         '''
             retrieve personalized recommended articles
         '''
-        person_id = int(request.GET['id'])
+        person_id = request.GET['id']
         topn = int(request.GET['top'])
         verbose= True if request.GET['verbose']=='true' else False
 
@@ -83,8 +83,8 @@ class RecommendArticles(APIView):
         collaborative_recommendation = True if request.GET['collaborative']=='true' else False
         enable_rec = [popularity_recommendation, content_based_recommendation,
                       collaborative_recommendation]
-        interactions_df = read_frame(Interaction.objects.all())
-        articles_df = read_frame(Article.objects.all())
+        interactions_df = read_frame(Interaction.objects.filter(source='mindplex'))
+        articles_df = read_frame(Article.objects.filter(source='mindplex'))
         #interactions_df = pd.read_csv('recommend/files/interactions.csv')
         #articles_df = pd.read_csv('recommend/files/articles.csv')
         interactions_df.set_index('person_id', inplace=True)
@@ -110,10 +110,16 @@ class PostInteractions(APIView):
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
-            'person_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The person id'),
-            'content_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The article id'),
+            'person_id': openapi.Schema(type=openapi.TYPE_STRING, description='The person id'),
+            'content_id': openapi.Schema(type=openapi.TYPE_STRING, description='The article id'),
             'event_type': openapi.Schema(type=openapi.TYPE_STRING,\
                     description='The interaction type'),
+            'timestamp': openapi.Schema(type=openapi.TYPE_INTEGER,\
+                    description='The timestamp the interaction has happened'),
+            'source': openapi.Schema(type=openapi.TYPE_STRING,\
+                    description='The source of the article the interaction has happened for'),
+
+
         }))
     def post(self, request, format=None):
         serializer = InteractionSerializer(data=request.data)
@@ -133,8 +139,8 @@ class PostArticles(APIView):
         properties={
             'timestamp': openapi.Schema(type=openapi.TYPE_INTEGER,
                 description='The time the article posted'),
-            'content_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='The article id'),
-            'author_person_id': openapi.Schema(type=openapi.TYPE_INTEGER,
+            'content_id': openapi.Schema(type=openapi.TYPE_STRING, description='The article id'),
+            'author_person_id': openapi.Schema(type=openapi.TYPE_STRING,
                     description='The article\'s author id'),
             'author_country': openapi.Schema(type=openapi.TYPE_STRING,
                     description='The article\'s author country'),
@@ -196,7 +202,7 @@ class ShowUserProfile(APIView):
     @swagger_auto_schema(manual_parameters=profile_param,security=[],
             responses={'400': 'Validation Error','200': ArticleSerializer})
     def get(self, request):
-        person_id = int(request.GET['id'])
+        person_id = request.GET['id']
         topn = int(request.GET['top'])
         with open('featurenames.pickle', 'rb') as handle:
             tfidf_feature_names = pickle.load(handle) 
