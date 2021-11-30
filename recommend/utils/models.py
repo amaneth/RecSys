@@ -3,7 +3,6 @@ from django.conf import settings
 from recommend.models import Popularity
 from recommend.models import Interaction
 from recommend.models import Article
-from recommend.serializers import UserProfileSerializer
 from sqlalchemy import create_engine
 from celery.utils.log import get_task_logger
 from django.core.cache import cache
@@ -43,7 +42,7 @@ logger.addHandler(loghandle)
 class MlModels:
     def __init__(self):
         logger.info("Initializing building models...")
-        self.interactions_df = read_frame(Interaction.objects.all())
+        self.interactions_df = read_frame(Interaction.objects.filter(source='mindplex'))
         self.event_type_strength= {'view': 0.5,
                 'like':1.0,
                 'dislike':-1.0,
@@ -58,7 +57,7 @@ class MlModels:
                             ['eventStrength'].sum().apply(lambda x : math.log(1+x, 2) if x>=0\
                             else -math.log(1+abs(x), 2) ).reset_index()
         #self.interactions_df = pd.read_csv('recommend/files/interactions.csv')
-        self.articles_df = read_frame(Article.objects.all())
+        self.articles_df = read_frame(Article.objects.filter(source='mindplex'))
         #self.articles_df = pd.read_csv('recommend/files/articles.csv')
         #interaction_train_df = train_test_split(self.interactions_df)                    
         #self.interactions_train_df = pd.read_csv('recommend/files/interactions_train.csv')
