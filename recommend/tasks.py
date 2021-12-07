@@ -18,6 +18,7 @@ def popularity_relearn():
     logger.debug("Popularity C----A---C---H--ED is : %s", acquired)
     if acquired:
         logger.info('Popularity model is relearning...')
+        model=MlModels()
         model.popularity()
     else:
         logger.debug('Relearning the popularity model is already started by another worker')

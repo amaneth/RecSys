@@ -208,7 +208,10 @@ class ShowUserProfile(APIView):
             tfidf_feature_names = pickle.load(handle) 
         with open('userprofile.pickle', 'rb') as handle:
             user_profiles = pickle.load(handle)
-        user_profile = user_profiles[person_id]
+        try:    
+            user_profile = user_profiles[person_id]
+        except KeyError:
+            return Response({"The User's profile is empty "})
         user_profile_sorted =sorted(zip(tfidf_feature_names, 
             user_profiles[person_id].flatten().tolist()), key = lambda x: -x[1])[:topn]
         return Response({key:val for key, val in user_profile_sorted})

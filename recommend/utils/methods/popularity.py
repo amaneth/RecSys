@@ -13,6 +13,18 @@ class PopularityRecommender:
                                 .isin(items_to_ignore)] \
                                 .sort_values('eventStrength', ascending=False) \
                                 .head(topn)
+        
+        #recommendations_popular_df = self.popularity_df[~self.popularity_df['content_id']\
+        #                        .isin(items_to_ignore)] \
+        #                        .sort_values('eventStrength', ascending=False)
+        #if source =='mindplex':
+        #    recommendations_source_filtered_df = recommendations_popular_filtered_df.\
+        #            loc[recommendations_popular_df['source']==source]
+        #else:
+        #    recommendations_source_filtered_df = recommendations_popular_filtered_df.\
+        #            loc[recommendations_popular_df['source']!='mindplex']
+        #recommendations_df= recommendations_source_filtered_df[['content_id','recStrength']]\
+        #        .head(topn)
         if verbose:
             if self.items_df is None:
                 raise Exception('"items_df" is required in verbose mode')

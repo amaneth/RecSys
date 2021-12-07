@@ -43,6 +43,8 @@ class MlModels:
     def __init__(self):
         logger.info("Initializing building models...")
         self.interactions_df = read_frame(Interaction.objects.filter(source='mindplex'))
+        self.interactions_df = self.interactions_df[(self.interactions_df['event_type']!='dislike')\
+                & (self.interactions_df['event_type']!='react-negative')]
         self.event_type_strength= {'view': 0.5,
                 'like':1.0,
                 'dislike':-1.0,
@@ -57,12 +59,14 @@ class MlModels:
                             ['eventStrength'].sum().apply(lambda x : math.log(1+x, 2) if x>=0\
                             else -math.log(1+abs(x), 2) ).reset_index()
         #self.interactions_df = pd.read_csv('recommend/files/interactions.csv')
-        self.articles_df = read_frame(Article.objects.filter(source='mindplex'))
-        #self.articles_df = pd.read_csv('recommend/files/articles.csv')
-        #interaction_train_df = train_test_split(self.interactions_df)                    
-        #self.interactions_train_df = pd.read_csv('recommend/files/interactions_train.csv')
+        self.articles_df = read_frame(Article.objects.all())
+        self.mindplex_articles_df= read_frame(Article.objects.filter(source='mindplex'))
+        self.crawled_articles_df= read_frame(Article.objects.filter(source!='mindplex'))
+        self.articles_df = pd.read_csv('recommend/files/articles.csv')
+        interaction_train_df = train_test_split(self.interactions_df)                    
+        self.interactions_train_df = pd.read_csv('recommend/files/interactions_train.csv')
         self.interactions_train_df = self.interactions_df
-        self.item_ids = self.articles_df['content_id'].tolist()
+        self.item_ids= self.articles_df['content_id'].tolist()
         self.tfidf_matrix = None
 
     def popularity(self):
@@ -93,13 +97,28 @@ class MlModels:
                             max_features=5000,
                             stop_words=stopwords_list)
         self.tfidf_matrix = vectorizer.fit_transform(self.articles_df['title']\
-                +""+ self.articles_df['content'])
+                +" "+ self.articles_df['content'])
         tfidf_feature_names = vectorizer.get_feature_names()
-        with open('featurenames.pickle', 'wb') as handle:
-            pickle.dump(tfidf_feature_names, handle, protocol= pickle.HIGHEST_PROTOCOL)
-        with open('itemids.pickle', 'wb') as handle:
+        article_ids = {'mindplex':self.mindplex_articles_df['content_id'].tolist(),
+                        'crawled':self.crawled_articles_df['content_id'].tolist()}
+        mindplex_articles_df= self.articles_df[self.articles_df['source']=='mindplex']
+        crawled_articles_df = self.articles_df[self.articles_df['source']!='mindplex']
+        mindplex_tfidf_matrix= vectorizer.transform(mindplex_articles_df['content']+" "+\
+                                        mindplex_articles_df['title'])
+        crawled_tfidf_matrix= vectorizer.transform(crawled_articles_df['content']+" "+\
+                                crawled_articles_df['title'])
+        tfidf_by_source= {'mindplex': mindplex_tfidf_matrix,
+                'crawled': crawled_tfidf_matrix}
+        content_based_model_data= {'tfidf':tfidf_by_source,
+                                    'ids': article_ids,
+                                    'feature_names': tfidf_feature_names
+                                 }
+        with open('cbmodel.pickle', 'wb') as handle:
+            pickle.dump(content_based_model_data, handle, protocol= pickle.HIGHEST_PROTOCOL)
+        '''with open('itemids.pickle', 'wb') as handle:
             pickle.dump(self.item_ids, handle, protocol = pickle.HIGHEST_PROTOCOL)
-        sparse.save_npz("tfidf.npz", self.tfidf_matrix)
+        sparse.save_npz("tfidf.npz", self.tfidf_matrix)'''
+   
 
     def get_item_profile(self, item_id):
         logger.info("building item's profile...")
@@ -108,7 +127,7 @@ class MlModels:
         return item_profile
     def get_item_profiles(self, ids):
         logger.info("building items' profile")
-        if isinstance(ids, np.floating):
+        if isinstance(ids, str):
             ids = [ids]
         item_profiles_list = [self.get_item_profile(x) for x in ids]
         item_profiles = scipy.sparse.vstack(item_profiles_list)
