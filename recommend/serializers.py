@@ -5,8 +5,9 @@ from django.db.models import Q
 class InteractionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Interaction
-        fields = ['person_id', 'content_id', 'event_type', 'timestamp','source']
+        fields = ['person_id','article', 'content_id', 'event_type', 'timestamp','source']
     def create(self, validated_data):
+        print("was here for some time")
         event = validated_data.get('event_type', None)
         if event=='unlike' or event == 'dislike':
             q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
@@ -39,19 +40,30 @@ class InteractionSerializer(serializers.ModelSerializer):
                     Q(event_type='comment-average')))
             q.delete()
         if event =='like':
+            try:
+                q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
+                    & Q(content_id=validated_data.get('content_id'))& Q(event_type='dislike'))
+                q.delete()
+            except:
+                pass
+
+        if event =='unfollow':
             q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
                 & Q(content_id=validated_data.get('content_id'))\
-                & Q(event_type='dislike'))
+                & Q(event_type='follow'))
             q.delete()
 
         if event in ['like','react-positive','react-negative', 'dislike', 'comment-best', 
-                        'comment-average', 'comment-good', 'view']:
+                'comment-average', 'comment-good', 'view','follow']:
+            article= validated_data.get('article',None)
             interaction, created = Interaction.objects\
-                    .update_or_create(content_id= validated_data.get('content_id',None),
+                        .update_or_create(article= validated_data.get('article', None),
                                         event_type=validated_data.get('event_type', None),
                                         person_id=validated_data.get('person_id', None),
+                                        content_id=validated_data.get('content_id', None),
                             defaults={'timestamp': validated_data.get('timestamp', None),
                                         'source':  validated_data.get('source', None)})
+
             
             return interaction
 

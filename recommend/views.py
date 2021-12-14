@@ -122,13 +122,18 @@ class PostInteractions(APIView):
 
         }))
     def post(self, request, format=None):
+        try:
+            article_interacted= Article.objects.get(content_id=request.data['content_id'])
+        except:
+            return Response({"Error":"Article with this id doesn't exist"},
+                                status=status.HTTP_400_BAD_REQUEST)
+        request.data['article']=article_interacted.id
         serializer = InteractionSerializer(data=request.data)
         if serializer.is_valid():
             try:
                 serializer.save()
             except IntegrityError:
                 pass
-
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
