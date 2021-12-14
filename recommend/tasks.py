@@ -18,7 +18,7 @@ def popularity_relearn():
     logger.debug("Popularity C----A---C---H--ED is : %s", acquired)
     if acquired:
         logger.info('Popularity model is relearning...')
-        model=MlModels()
+        model=MlModels('popularity')
         model.popularity()
     else:
         logger.debug('Relearning the popularity model is already started by another worker')
@@ -29,7 +29,7 @@ def content_based_relearn():
     logger.debug("Content based C----A---C---H--ED is : %s", acquired)
     if acquired:
         logger.info('Content based model is relearning...')
-        model=MlModels()
+        model=MlModels('content-based')
         model.build_users_profiles()
     else:
         logger.debug('Relearning the content based model is already started by another worker')
