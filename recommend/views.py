@@ -10,6 +10,7 @@ from recommend.serializers import ArticleSerializer
 from recommend.serializers import InteractionSerializer
 from django.http import Http404
 from django.db import IntegrityError
+from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -32,6 +33,8 @@ from drf_yasg.utils import swagger_auto_schema
 
 recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='The person id', type=openapi.TYPE_STRING, ),
+    openapi.Parameter( 'community', in_=openapi.IN_QUERY,
+    description='Recommend from', type=openapi.TYPE_STRING, ),
     openapi.Parameter( 'top', in_=openapi.IN_QUERY, 
     description='The top n recommendations to be returned', type=openapi.TYPE_INTEGER, ),
     openapi.Parameter( 'verbose', in_=openapi.IN_QUERY, 
@@ -46,6 +49,7 @@ recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     openapi.Parameter( 'collaborative', in_=openapi.IN_QUERY,
         description='whether collaborative filtering will be used',
         type=openapi.TYPE_BOOLEAN, ),
+    
 ]
 
 model_params = [openapi.Parameter( 'popularity', in_=openapi.IN_QUERY,
@@ -76,6 +80,7 @@ class RecommendArticles(APIView):
         '''
         person_id = request.GET['id']
         topn = int(request.GET['top'])
+        recommend_from = request.GET['community']
         verbose= True if request.GET['verbose']=='true' else False
 
         popularity_recommendation = True if request.GET['popularity']=='true' else False
@@ -83,8 +88,12 @@ class RecommendArticles(APIView):
         collaborative_recommendation = True if request.GET['collaborative']=='true' else False
         enable_rec = [popularity_recommendation, content_based_recommendation,
                       collaborative_recommendation]
-        interactions_df = read_frame(Interaction.objects.filter(source='mindplex'))
-        articles_df = read_frame(Article.objects.filter(source='mindplex'))
+        if recommend_from=='mindplex':
+            interactions_df = read_frame(Interaction.objects.filter(source=recommend_from))
+            articles_df = read_frame(Article.objects.filter(source=recommend_from))
+        else:
+            interactions_df = read_frame(Interaction.objects.filter(~Q(source='mindplex')))
+            articles_df = read_frame(Article.objects.filter(~Q(source='mindplex')))
         #interactions_df = pd.read_csv('recommend/files/interactions.csv')
         #articles_df = pd.read_csv('recommend/files/articles.csv')
         interactions_df.set_index('person_id', inplace=True)
@@ -92,15 +101,23 @@ class RecommendArticles(APIView):
         if enable_rec.count(True)>1:
             pass # TODO create instance of hybrid recommender
         elif popularity_recommendation:
-            popularity_df = read_frame(Popularity.objects.all())
+            if recommend_from =='mindplex':
+                popularity_df = read_frame(Popularity.objects.filter(source='mindplex'))
+            else:
+                popularity_df = read_frame(Popularity.objects.filter(~Q(source='mindplex')))
             recommender = PopularityRecommender(popularity_df,articles_df)
         elif content_based_recommendation:
             recommender = ContentBasedRecommender(articles_df)
         elif collaborative_recommendation:
             pass #TODO create instance of collaborative recommender
-
-        recommendations_df = recommender.recommend_items(user_id=person_id,
-                                    items_to_ignore=extractor.get_items_interacted(person_id,
+        if recommend_from=='mindplex':
+            recommendations_df = recommender.recommend_items(user_id=person_id,
+                    recommend_from='mindplex',
+                    items_to_ignore=extractor.get_items_interacted(person_id,
+                                        interactions_df), topn=topn, verbose=verbose)
+        else:
+            recommendations_df = recommender.recommend_items(recommend_from='crawled',
+                    user_id=person_id, items_to_ignore=extractor.get_items_interacted(person_id,
                                         interactions_df), topn=topn, verbose=verbose)
         return Response(recommendations_df)
 
