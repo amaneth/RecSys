@@ -139,13 +139,14 @@ class PostInteractions(APIView):
 
         }))
     def post(self, request, format=None):
+        request = request.data.copy()
         try:
-            article_interacted= Article.objects.get(content_id=request.data['content_id'])
+            article_interacted= Article.objects.get(content_id=request['content_id'])
         except:
             return Response({"Error":"Article with this id doesn't exist"},
                                 status=status.HTTP_400_BAD_REQUEST)
-        request.data['article']=article_interacted.id
-        serializer = InteractionSerializer(data=request.data)
+        request['article']=article_interacted.id
+        serializer = InteractionSerializer(data=request)
         if serializer.is_valid():
             try:
                 serializer.save()
