@@ -4,10 +4,11 @@ from django.shortcuts import render
 from recommend.models import Article
 from recommend.models import Popularity
 from recommend.models import Interaction
+from recommend.models import Setting
+
 from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
-from recommend.serializers import ArticleSerializer
-from recommend.serializers import InteractionSerializer
+from recommend.serializers import ArticleSerializer, InteractionSerializer, SettingSerializer
 from django.http import Http404
 from django.db import IntegrityError
 from django.db.models import Q
@@ -18,7 +19,7 @@ from rest_framework import status
 from recommend.utils.methods.popularity import PopularityRecommender
 from recommend.utils.methods.contentive import ContentBasedRecommender
 from recommend.utils.extractor import Extractor
-from recommend.utils.models import MlModels
+from recommend.utils.models import MlModels, logger
 from recommend.tasks import popularity_relearn
 from recommend.tasks import content_based_relearn
 from recommend.tasks import collaborative_relearn
@@ -40,15 +41,11 @@ recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     openapi.Parameter( 'verbose', in_=openapi.IN_QUERY, 
     description='If true returns the deatil of the articles recommended(title, url, content...)',
     type=openapi.TYPE_BOOLEAN, ),
-    openapi.Parameter( 'popularity', in_=openapi.IN_QUERY,
-        description='Whether popularity recommendation will be used',
-        type=openapi.TYPE_BOOLEAN, ),
-    openapi.Parameter( 'content-based', in_=openapi.IN_QUERY,
-        description='whether content based filtering will be used',
-        type=openapi.TYPE_BOOLEAN, ),
-    openapi.Parameter( 'collaborative', in_=openapi.IN_QUERY,
-        description='whether collaborative filtering will be used',
-        type=openapi.TYPE_BOOLEAN, ),
+    openapi.Parameter( 'recommender', in_=openapi.IN_QUERY,
+        description='The recommender to be used',
+        type=openapi.TYPE_STRING,
+        enum=['default', 'popularity', 'content-based', 'collaborative', 'high-quality','random']
+        ),
     
 ]
 
@@ -70,6 +67,7 @@ profile_param = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
 
 
 
+
 class RecommendArticles(APIView):
 
     @swagger_auto_schema(manual_parameters=recommend_params ,security=[],
@@ -82,34 +80,69 @@ class RecommendArticles(APIView):
         topn = int(request.GET['top'])
         recommend_from = request.GET['community']
         verbose= True if request.GET['verbose']=='true' else False
+        recommender = request.GET['recommender']
 
-        popularity_recommendation = True if request.GET['popularity']=='true' else False
-        content_based_recommendation = True if request.GET['content-based']=='true' else False
-        collaborative_recommendation = True if request.GET['collaborative']=='true' else False
-        enable_rec = [popularity_recommendation, content_based_recommendation,
-                      collaborative_recommendation]
+
+
         if recommend_from=='mindplex':
             interactions_df = read_frame(Interaction.objects.filter(source=recommend_from))
             articles_df = read_frame(Article.objects.filter(source=recommend_from))
         else:
             interactions_df = read_frame(Interaction.objects.filter(~Q(source='mindplex')))
             articles_df = read_frame(Article.objects.filter(~Q(source='mindplex')))
-        #interactions_df = pd.read_csv('recommend/files/interactions.csv')
-        #articles_df = pd.read_csv('recommend/files/articles.csv')
         interactions_df.set_index('person_id', inplace=True)
+        
         extractor = Extractor()
-        if enable_rec.count(True)>1:
-            pass # TODO create instance of hybrid recommender
-        elif popularity_recommendation:
+        if recommender=='default':
+
+            popularity_weight = float(Setting.objects.get(section_name='weight', setting_name='popularity')\
+                    .setting_value)
+            content_based_weight = float(Setting.objects.get(section_name='weight', 
+                                                        setting_name='content_based')\
+                                                                .setting_value)
+            collaborative_weight = float(Setting.objects.get(section_name='weight', 
+                                                        setting_name='collaborative')\
+                                                                .setting_value)
+            high_quality_weight = float(Setting.objects.get(section_name='weight', 
+                                                        setting_name='high_quality')\
+                                                                .setting_value)
+            random_weight = float(Setting.objects.get(section_name='weight', 
+                                                        setting_name='random')\
+                                                                .setting_value)
+            enable_rec = [popularity_weight, content_based_weight,
+                          collaborative_weight, high_quality_weight, random_weight]
+
+            only_one= ([a==1.0 for a in enable_rec].count(True)==1) and \
+                    ([a==0.0 for a in enable_rec].count(True)==4)
+            if not only_one:
+                return Response({"Error": "hybrid recommender coming soon"}) # TODO create instance of\
+                        #hybrid recommender
+            elif enable_rec[0]==1.0:
+                if recommend_from =='mindplex':
+                    popularity_df = read_frame(Popularity.objects.filter(source='mindplex'))
+                else:
+                    popularity_df = read_frame(Popularity.objects.filter(~Q(source='mindplex')))
+                recommender = PopularityRecommender(popularity_df,articles_df)
+            elif enable_rec[1]==1.0:
+                recommender = ContentBasedRecommender(articles_df)
+            elif enable_rec[2]==1.0:
+                return Response({"Error": "collaborative recommender is not done yet"}) 
+                #TODO create instance of collaborative recommender
+            elif enable_rec[3]==1.0:
+                return Response({"Error": "high quality recommender is not done yet"}) #TODO
+            elif enable_rec[4]==1.0:
+                return Response({"Error": "random recommender is not done yet"}) #TODO
+            else:
+                return Response({"Error": "Unlogical request"}) #TODO
+        elif recommender=='popularity':
             if recommend_from =='mindplex':
                 popularity_df = read_frame(Popularity.objects.filter(source='mindplex'))
             else:
                 popularity_df = read_frame(Popularity.objects.filter(~Q(source='mindplex')))
             recommender = PopularityRecommender(popularity_df,articles_df)
-        elif content_based_recommendation:
+        elif recommender=='content-based':
             recommender = ContentBasedRecommender(articles_df)
-        elif collaborative_recommendation:
-            pass #TODO create instance of collaborative recommender
+
         if recommend_from=='mindplex':
             recommendations_df = recommender.recommend_items(user_id=person_id,
                     recommend_from='mindplex',
@@ -134,10 +167,7 @@ class PostInteractions(APIView):
             'timestamp': openapi.Schema(type=openapi.TYPE_INTEGER,\
                     description='The timestamp the interaction has happened'),
             'source': openapi.Schema(type=openapi.TYPE_STRING,\
-                    description='The source of the article the interaction has happened for'),
-
-
-        }))
+                    description='The source of the article the interaction has happened for'),}))
     def post(self, request, format=None):
         request = request.data.copy()
         try:
@@ -184,7 +214,7 @@ class PostArticles(APIView):
 class Relearn(APIView):
     @swagger_auto_schema(manual_parameters=model_params,security=[],
             responses={'400': 'Validation Error','200': ArticleSerializer})
-    def get(self, request):
+    def get(self, request): 
             relearn_popularity = True if request.GET['popularity']=='true' else False
             relearn_content_based = True if request.GET['content-based']=='true' else False
             relearn_collaborative = True if request.GET['collaborative']=='true' else False
@@ -227,20 +257,41 @@ class ShowUserProfile(APIView):
     def get(self, request):
         person_id = request.GET['id']
         topn = int(request.GET['top'])
-        with open('featurenames.pickle', 'rb') as handle:
-            tfidf_feature_names = pickle.load(handle) 
-        with open('userprofile.pickle', 'rb') as handle:
-            user_profiles = pickle.load(handle)
+        with open('cbmodel.pickle', 'rb') as handle:
+            model=pickle.load(handle)
         try:    
-            user_profile = user_profiles[person_id]
+            user_profile = model['user_profiles'][person_id]
         except KeyError:
             return Response({"The User's profile is empty "})
-        user_profile_sorted =sorted(zip(tfidf_feature_names, 
-            user_profiles[person_id].flatten().tolist()), key = lambda x: -x[1])[:topn]
+        user_profile_sorted =sorted(zip(model['feature_names'], 
+            model['user_profiles'][person_id].flatten().tolist()), key = lambda x: -x[1])[:topn]
         return Response({key:val for key, val in user_profile_sorted})
 
 
+class RecommendationSettings(APIView):
+    def post(self, request, format=None):
+        print("The request data is: {}". format(request.data))
+        request= request.data.copy()
+        section_name = request['section_name']
+        if(section_name=='weight'):
+            weights = {'popularity': request['popularity'], 'content_based':request['content_based'],
+                    'collaborative':request['collaborative'], 'high_quality':request['high_quality'],
+                    'random':request['random']}
+            correct_setting= all(float(x)<=1.0 and float(x)>=0.0 for x in list(weights.values())) and \
+                    sum([float(y) for y in list(weights.values())])==1.0
+            if not correct_setting:
+                return Response({"Error": "The setting data is not logical"}, status= status.HTTP_400_BAD_REQUEST)
+            for key,value in weights.items():
+                serializer = SettingSerializer(data={'section_name': 'weight', 'setting_name':key,
+                                                'setting_value': value, 'setting_type':3})
+                if serializer.is_valid():
+                    serializer.save()
+            return Response(request, status= status.HTTP_201_CREATED)
+        else:
+            serializer = SettingSerializer(request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status= status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-
-
+        
