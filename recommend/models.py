@@ -47,3 +47,8 @@ class Popularity(models.Model):
     source = models.CharField(max_length=40, default='')
     eventStrength = models.IntegerField()
 
+class Setting(models.Model):
+    section_name = models.CharField(max_length=60)
+    setting_name = models.CharField(max_length=60)
+    setting_value = models.CharField(max_length=200)
+    setting_type = models.IntegerField()
