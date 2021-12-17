@@ -6,6 +6,7 @@ import pandas as pd
 import os
 import logging
 import logging.handlers as loghandlers
+import numpy as np
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -36,8 +37,16 @@ class ContentBasedRecommender:
         
     def _get_similar_items_to_user_profile(self, person_id,source='mindplex',topn=1000):
         #Computes the cosine similarity between the user profile and all item profiles
-        cosine_similarities = cosine_similarity(self.model['user_profiles'][person_id], 
+        try:
+            cosine_similarities = cosine_similarity(self.model['user_profiles'][person_id], 
                                     self.model['tfidf'][source])
+            logger.debug("The shape of the user pirofiles is: {}".format(str(self.model['user_profiles'][person_id].shape)))
+        except KeyError:
+            dummy_profile = np.array([np.zeros(len(list(self.model['user_profiles']\
+                    .values())[0][0]))])
+            cosine_similarities = cosine_similarity(dummy_profile, self.model['tfidf'][source])
+            logger.info("User is getting some random content-based recommendation\
+                    because it has no previous history")
         #Gets the top similar items
         similar_indices = cosine_similarities.argsort().flatten()[-topn:]
         #Sort the similar items by similarity
