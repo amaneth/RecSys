@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from recommend.models import Article, Interaction
+from recommend.models import Article, Interaction, Setting
 from django.db.models import Q
 
 class InteractionSerializer(serializers.ModelSerializer):
@@ -92,4 +92,14 @@ class ArticleSerializer(serializers.ModelSerializer):
                                     'source': validated_data.get('source', None)})
         return article
 
-
+class SettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Setting
+        fields = ['section_name', 'setting_name', 'setting_value', 'setting_type']
+    def create(self, validated_data):
+        setting, created = Setting.objects.update_or_create(section_name= validated_data.\
+                                            get('section_name', None),
+                                            setting_name= validated_data.get('setting_name', None),
+                                            setting_type= validated_data.get('setting_type', None),
+                                            defaults= {'setting_value': validated_data.get('setting_value',None)})
+        return setting
