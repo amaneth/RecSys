@@ -80,7 +80,8 @@ class InteractionSerializer(serializers.ModelSerializer):
 class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
-        fields = ['timestamp', 'content_id', 'author_person_id', 'author_country', 'url', 'title', 'content','source']
+        fields = ['timestamp', 'content_id', 'author_person_id', 'author_country', 'url', 'title',
+                'content','source', 'top_image']
     def create(self, validated_data):
         article, created = Article.objects.update_or_create(content_id= validated_data.get('content_id', None),
                             defaults={'timestamp': validated_data.get('timestamp', None),
@@ -89,7 +90,8 @@ class ArticleSerializer(serializers.ModelSerializer):
                                     'url': validated_data.get('url', None),
                                     'title': validated_data.get('title', None),
                                     'content': validated_data.get('content', None),
-                                    'source': validated_data.get('source', None)})
+                                    'source': validated_data.get('source', None),
+                                    'top_image': validated_data.get('top_image', None)})
         return article
 
 class SettingSerializer(serializers.ModelSerializer):
