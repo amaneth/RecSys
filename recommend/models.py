@@ -11,7 +11,7 @@ class Article(models.Model):
     title = models.CharField(max_length =400, blank=True, default='')
     content = models.TextField()
     source = models.CharField(max_length=40, default='mindplex')
-
+    top_image = models.CharField(max_length=400, blank='True',default='')
     #def __str__(self):
     #    return str(self.id)
 class Interaction(models.Model):
