@@ -84,7 +84,9 @@ class ContentBasedRecommender:
                                                           [['recStrength',
                                                               'content_id',
                                                               'title',
-                                                              'url']]
+                                                              'url',
+                                                              'content',
+                                                              'top_image']]
 
 
         return recommendations_df
