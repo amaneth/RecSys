@@ -203,6 +203,10 @@ class PostArticles(APIView):
                     description='The article\'s title'),
             'content': openapi.Schema(type=openapi.TYPE_STRING,
                     description='The article\'s content'),
+            'source': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s content'),
+            'top_image': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s content'),
         }))
     def post(self, request, format=None):
         serializer = ArticleSerializer(data=request.data)
