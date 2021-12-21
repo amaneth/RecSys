@@ -55,14 +55,14 @@ class ContentBasedRecommender:
                 key=lambda x: -x[1])
         return similar_items
         
-    def recommend_items(self,user_id, recommend_from='mindplex', items_to_ignore=[], topn=10, verbose=False):
+    def recommend_items(self,user_id, recommend_from='mindplex', items_to_ignore=[], verbose=False):
         similar_items = self._get_similar_items_to_user_profile(user_id, source=recommend_from)
         logger.info("{0} similar articles has been found:".format(str(similar_items)))
         #Ignores items the user has already interacted
         similar_items_filtered = list(filter(lambda x: x[0] not in items_to_ignore, similar_items))
         
         recommendations_df = pd.DataFrame(similar_items_filtered,
-                columns=['content_id', 'recStrength']).head(topn)
+                columns=['content_id', 'recStrength'])
         #recommendations_similar_filtered_df =pd.DataFrame(similar_items_filtered)
         #if source =='mindplex':
         #    recommendations_source_filtered_df = recommendations_similar_filtered_df.\
