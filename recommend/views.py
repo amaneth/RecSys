@@ -5,6 +5,7 @@ from recommend.models import Article
 from recommend.models import Popularity
 from recommend.models import Interaction
 from recommend.models import Setting
+from recommend.serializers import PopularitySerializer
 
 from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
@@ -15,6 +16,7 @@ from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 
 from recommend.utils.methods.popularity import PopularityRecommender
 from recommend.utils.methods.contentive import ContentBasedRecommender
@@ -24,6 +26,7 @@ from recommend.tasks import popularity_relearn
 from recommend.tasks import content_based_relearn
 from recommend.tasks import collaborative_relearn
 
+import json
 import pandas as pd
 import pickle
 from django_pandas.io import read_frame
@@ -36,8 +39,10 @@ recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='The person id', type=openapi.TYPE_STRING, ),
     openapi.Parameter( 'community', in_=openapi.IN_QUERY,
     description='Recommend from', type=openapi.TYPE_STRING, ),
-    openapi.Parameter( 'top', in_=openapi.IN_QUERY, 
-    description='The top n recommendations to be returned', type=openapi.TYPE_INTEGER, ),
+    openapi.Parameter( 'page_size', in_=openapi.IN_QUERY, 
+    description='Page size of the recommendations', type=openapi.TYPE_INTEGER, ),
+    openapi.Parameter( 'page', in_=openapi.IN_QUERY, 
+    description='Page number to be returned', type=openapi.TYPE_INTEGER, ),
     openapi.Parameter( 'verbose', in_=openapi.IN_QUERY, 
     description='If true returns the deatil of the articles recommended(title, url, content...)',
     type=openapi.TYPE_BOOLEAN, ),
@@ -68,7 +73,7 @@ profile_param = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
 
 
 
-class RecommendArticles(APIView):
+class RecommendArticles(APIView, PageNumberPagination):
 
     @swagger_auto_schema(manual_parameters=recommend_params ,security=[],
             responses={'400': 'Validation Error','200': ArticleSerializer})
@@ -77,7 +82,7 @@ class RecommendArticles(APIView):
             retrieve personalized recommended articles
         '''
         person_id = request.GET['id']
-        topn = int(request.GET['top'])
+        self.page_size = int(request.GET['page_size'])
         recommend_from = request.GET['community']
         verbose= True if request.GET['verbose']=='true' else False
         recommender = request.GET['recommender']
@@ -147,12 +152,14 @@ class RecommendArticles(APIView):
             recommendations_df = recommender.recommend_items(user_id=person_id,
                     recommend_from='mindplex',
                     items_to_ignore=extractor.get_items_interacted(person_id,
-                                        interactions_df), topn=topn, verbose=verbose)
+                                        interactions_df), verbose=verbose)
         else:
             recommendations_df = recommender.recommend_items(recommend_from='crawled',
                     user_id=person_id, items_to_ignore=extractor.get_items_interacted(person_id,
-                                        interactions_df), topn=topn, verbose=verbose)
-        return Response(recommendations_df)
+                                        interactions_df), verbose=verbose)
+        recommendations = recommendations_df.to_dict('records')
+        result_page = self.paginate_queryset(recommendations, request)
+        return self.get_paginated_response(result_page)
 
     
 class PostInteractions(APIView):
