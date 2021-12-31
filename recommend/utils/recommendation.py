@@ -5,12 +5,14 @@ from recommend.utils.methods.contentive import ContentBasedRecommender
 from recommend.utils.methods.reputation import ReputationalRecommender
 from django_pandas.io import read_frame
 from recommend.utils.models import logger
+from django.db.models import Q
 
 class Recommendation:
 
     def __init__(self, recommender, recommend_from='mindplex'):
         
         self.recommender=recommender
+        self.recommend_from=recommend_from
         self.popularity_weight = float(Setting.objects.get(section_name='weight', setting_name='popularity')\
                 .setting_value)
         self.content_based_weight = float(Setting.objects.get(section_name='weight',
@@ -68,14 +70,14 @@ class Recommendation:
         if verbose:
             if self.articles_df.empty:
                 raise Exception("articles is required in the verbose mode it doesn't exist")
-            recommendations_df = recommendations_df.merge(self.articles_df, how = 'left',
-                                                          left_on = 'content_id',
-                                                          right_on = 'content_id')\
-                                                          [[ 'content_id',
+            recommendations_df = recommendations_df.merge(self.articles_df[[ 'content_id',
                                                               'title',
                                                               'url',
                                                               'content',
-                                                              'top_image']]
+                                                              'top_image']], how = 'left',
+                                                          left_on = 'content_id',
+                                                          right_on = 'content_id')
+                                                          
             logger.info("the recommendation datafame:{}"\
                     .format(recommendations_df[recommendations_df['title'].isnull()]))
         return recommendations_df
