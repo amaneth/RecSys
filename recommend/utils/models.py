@@ -1,8 +1,6 @@
 import pandas as pd
 from django.conf import settings
-from recommend.models import Popularity
-from recommend.models import Interaction
-from recommend.models import Article
+from recommend.models import Popularity, Interaction, Article, Reputation
 from sqlalchemy import create_engine
 from celery.utils.log import get_task_logger
 from django.core.cache import cache
@@ -65,17 +63,14 @@ class MlModels:
                             else -math.log(1+abs(x), 2) ).reset_index()
         logger.debug("Shape of interactions df after calculating event strenght: -{0}- "\
                 .format(str(self.interactions_df.shape)))
-        #self.interactions_df = pd.read_csv('recommend/files/interactions.csv')
         self.articles_df = read_frame(Article.objects.all())
         self.mindplex_articles_df= read_frame(Article.objects.filter(source='mindplex'))
         self.crawled_articles_df= read_frame(Article.objects.filter(~Q(source='mindplex')))
-        #self.articles_df = pd.read_csv('recommend/files/articles.csv')
         #interaction_train_df = train_test_split(self.interactions_df)                    
-        #self.interactions_train_df = pd.read_csv('recommend/files/interactions_train.csv')
         self.interactions_train_df = self.interactions_df
         self.item_ids= self.articles_df['content_id'].tolist()
         self.tfidf_matrix = None
-
+        self.reputations_df = read_frame(Reputation.objects.all())
     def popularity(self):
         logger.info("building the popularity model has started")
         self.interactions_df.set_index('person_id', inplace=True)
@@ -92,7 +87,7 @@ class MlModels:
         ) # setting the appropriate connection parameters
         engine = create_engine(database_url, echo=False)
 
-        popularity_df.to_sql(Popularity._meta.db_table, con=engine, if_exists='replace') # saving to the database
+        popularity_df.to_sql(Popularity._meta.db_table, con=engine, if_exists='replace', index=False) # saving to the database
         unlock = cache.delete("popularity")
         logger.info("Release lock is  done is :"+ str(unlock))
     
@@ -111,9 +106,13 @@ class MlModels:
                         'crawled':self.crawled_articles_df['content_id'].tolist()}
         mindplex_articles_df= self.articles_df[self.articles_df['source']=='mindplex']
         crawled_articles_df = self.articles_df[self.articles_df['source']!='mindplex']
-        mindplex_tfidf_matrix= vectorizer.transform(mindplex_articles_df['content']+" "+\
+        mindplex_tfidf_matrix= None
+        crawled_tfidf_matrix= None
+        if not mindplex_articles_df.empty:
+            mindplex_tfidf_matrix= vectorizer.transform(mindplex_articles_df['content']+" "+\
                                         mindplex_articles_df['title'])
-        crawled_tfidf_matrix= vectorizer.transform(crawled_articles_df['content']+" "+\
+        if not crawled_articles_df.empty:
+            crawled_tfidf_matrix= vectorizer.transform(crawled_articles_df['content']+" "+\
                                 crawled_articles_df['title'])
         tfidf_by_source= {'mindplex': mindplex_tfidf_matrix,
                 'crawled': crawled_tfidf_matrix}
@@ -150,6 +149,8 @@ class MlModels:
         return user_profile_norm
     def build_users_profiles(self):
         logger.info("Building user profile")
+        if self.articles_df.empty:
+            raise Exception("There are no articles in the database. I can't build the users profile")
         self.tfidf()
         interactions_indexed_df = self.interactions_train_df[self.interactions_train_df['content_id']\
                                                        .isin(self.articles_df['content_id'])]\
@@ -169,3 +170,11 @@ class MlModels:
                     str(os.getcwd()))
         unlock = cache.delete("content-based")
         logger.debug("Release lock for content-based is  done is :"+ str(unlock))
+
+    def build_users_reputation(self):
+        communities= self.reputations_df.community_id.unique()
+        reputation_model_data={}
+        for community in communities:
+            reputation_model_data[community]= self.reputations_df[self.reputations_df['community_id']==community]
+        with open('highqualitymodel.pickle', 'wb') as handle:
+            pickle.dump(reputation_model_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
