@@ -52,3 +52,9 @@ class Setting(models.Model):
     setting_name = models.CharField(max_length=60)
     setting_value = models.CharField(max_length=200)
     setting_type = models.IntegerField()
+
+class Reputation(models.Model):
+    community_id= models.IntegerField()
+    author_person_id = models.CharField(max_length=40)
+    offchain= models.FloatField()
+    categories= models.CharField(max_length=400)
