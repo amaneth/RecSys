@@ -30,7 +30,7 @@ from django_pandas.io import read_frame
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
-
+# swagger param definations
 recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='The person id', type=openapi.TYPE_STRING, ),
     openapi.Parameter( 'community', in_=openapi.IN_QUERY,
@@ -66,6 +66,35 @@ profile_param = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='top n profiles of the user to be returned', type=openapi.TYPE_INTEGER, ),
 ]
 
+interaction_param= {
+            'person_id': openapi.Schema(type=openapi.TYPE_STRING, description='The person id'),
+            'content_id': openapi.Schema(type=openapi.TYPE_STRING, description='The article id'),
+            'event_type': openapi.Schema(type=openapi.TYPE_STRING,\
+                    description='The interaction type'),
+            'timestamp': openapi.Schema(type=openapi.TYPE_INTEGER,\
+                    description='The timestamp the interaction has happened'),
+            'source': openapi.Schema(type=openapi.TYPE_STRING,\
+                    description='The source of the article the interaction has happened for'),}
+
+article_param = {
+            'timestamp': openapi.Schema(type=openapi.TYPE_INTEGER,
+                description='The time the article posted'),
+            'content_id': openapi.Schema(type=openapi.TYPE_STRING, description='The article id'),
+            'author_person_id': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s author id'),
+            'author_country': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s author country'),
+            'url': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s URL'),
+            'title': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s title'),
+            'content': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s content'),
+            'source': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s content'),
+            'top_image': openapi.Schema(type=openapi.TYPE_STRING,
+                    description='The article\'s content'),
+        }
 
 
 
@@ -93,24 +122,9 @@ class PostInteractions(APIView):
 
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
-        properties={
-            'person_id': openapi.Schema(type=openapi.TYPE_STRING, description='The person id'),
-            'content_id': openapi.Schema(type=openapi.TYPE_STRING, description='The article id'),
-            'event_type': openapi.Schema(type=openapi.TYPE_STRING,\
-                    description='The interaction type'),
-            'timestamp': openapi.Schema(type=openapi.TYPE_INTEGER,\
-                    description='The timestamp the interaction has happened'),
-            'source': openapi.Schema(type=openapi.TYPE_STRING,\
-                    description='The source of the article the interaction has happened for'),}))
+        properties=interaction_param))
     def post(self, request, format=None):
-        request = request.data.copy()
-        try:
-            article_interacted= Article.objects.get(content_id=request['content_id'])
-        except:
-            return Response({"Error":"Article with this id doesn't exist"},
-                                status=status.HTTP_400_BAD_REQUEST)
-        request['article']=article_interacted.id
-        serializer = InteractionSerializer(data=request)
+        serializer = InteractionSerializer(data=request.data)
         if serializer.is_valid():
             try:
                 serializer.save()
@@ -123,25 +137,7 @@ class PostArticles(APIView):
 
     @swagger_auto_schema(request_body=openapi.Schema(
         type=openapi.TYPE_OBJECT,
-        properties={
-            'timestamp': openapi.Schema(type=openapi.TYPE_INTEGER,
-                description='The time the article posted'),
-            'content_id': openapi.Schema(type=openapi.TYPE_STRING, description='The article id'),
-            'author_person_id': openapi.Schema(type=openapi.TYPE_STRING,
-                    description='The article\'s author id'),
-            'author_country': openapi.Schema(type=openapi.TYPE_STRING,
-                    description='The article\'s author country'),
-            'url': openapi.Schema(type=openapi.TYPE_STRING,
-                    description='The article\'s URL'),
-            'title': openapi.Schema(type=openapi.TYPE_STRING,
-                    description='The article\'s title'),
-            'content': openapi.Schema(type=openapi.TYPE_STRING,
-                    description='The article\'s content'),
-            'source': openapi.Schema(type=openapi.TYPE_STRING,
-                    description='The article\'s content'),
-            'top_image': openapi.Schema(type=openapi.TYPE_STRING,
-                    description='The article\'s content'),
-        }))
+        properties=article_param))
     def post(self, request, format=None):
         serializer = ArticleSerializer(data=request.data)
         if serializer.is_valid():
