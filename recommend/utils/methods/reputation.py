@@ -62,5 +62,3 @@ class ReputationalRecommender:
                 recommendations_df=recommendations_df.append(author_recommended_articles_df)
                 available_articles[author]-=amount
         return recommendations_df
-        #recommendations_df=
-        #return recommendations_df
