@@ -8,7 +8,7 @@ from django.core.cache import cache
 
 logger = get_task_logger(__name__)
 
-LOCK_EXPIRE = 60 * 10
+LOCK_EXPIRE = 60 
 
 
 
@@ -46,6 +46,16 @@ def collaborative_relearn():
 
 
 
+@shared_task
+def high_quality_relearn():
+    acquired = cache.add("high-quality","high-quality",LOCK_EXPIRE)
+    logger.debug("High quality model relearn started cached is : %s", acquired)
+    if acquired:
+        logger.info('High Quality model is relearning...')
+        model=MlModels('high-quality')
+        model.build_users_reputation()
+    else:
+        logger.debug('Relearning the high quality model is already started by another worker')
         
 
 
