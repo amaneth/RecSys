@@ -5,8 +5,6 @@ from recommend.models import Article
 from recommend.models import Popularity
 from recommend.models import Interaction
 from recommend.models import Setting
-from recommend.serializers import PopularitySerializer
-
 from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
 from recommend.serializers import ArticleSerializer, InteractionSerializer, SettingSerializer
@@ -20,11 +18,9 @@ from rest_framework.pagination import PageNumberPagination
 
 from recommend.utils.methods.popularity import PopularityRecommender
 from recommend.utils.methods.contentive import ContentBasedRecommender
-from recommend.utils.extractor import Extractor
+from recommend.utils.recommendation import Recommendation
 from recommend.utils.models import MlModels, logger
-from recommend.tasks import popularity_relearn
-from recommend.tasks import content_based_relearn
-from recommend.tasks import collaborative_relearn
+from recommend.tasks import popularity_relearn, content_based_relearn, collaborative_relearn, high_quality_relearn
 
 import json
 import pandas as pd
@@ -86,77 +82,8 @@ class RecommendArticles(APIView, PageNumberPagination):
         recommend_from = request.GET['community']
         verbose= True if request.GET['verbose']=='true' else False
         recommender = request.GET['recommender']
-
-
-
-        if recommend_from=='mindplex':
-            interactions_df = read_frame(Interaction.objects.filter(source=recommend_from))
-            articles_df = read_frame(Article.objects.filter(source=recommend_from))
-        else:
-            interactions_df = read_frame(Interaction.objects.filter(~Q(source='mindplex')))
-            articles_df = read_frame(Article.objects.filter(~Q(source='mindplex')))
-        interactions_df.set_index('person_id', inplace=True)
-        
-        extractor = Extractor()
-        if recommender=='default':
-
-            popularity_weight = float(Setting.objects.get(section_name='weight', setting_name='popularity')\
-                    .setting_value)
-            content_based_weight = float(Setting.objects.get(section_name='weight', 
-                                                        setting_name='content_based')\
-                                                                .setting_value)
-            collaborative_weight = float(Setting.objects.get(section_name='weight', 
-                                                        setting_name='collaborative')\
-                                                                .setting_value)
-            high_quality_weight = float(Setting.objects.get(section_name='weight', 
-                                                        setting_name='high_quality')\
-                                                                .setting_value)
-            random_weight = float(Setting.objects.get(section_name='weight', 
-                                                        setting_name='random')\
-                                                                .setting_value)
-            enable_rec = [popularity_weight, content_based_weight,
-                          collaborative_weight, high_quality_weight, random_weight]
-
-            only_one= ([a==1.0 for a in enable_rec].count(True)==1) and \
-                    ([a==0.0 for a in enable_rec].count(True)==4)
-            if not only_one:
-                return Response({"Error": "hybrid recommender coming soon"}) # TODO create instance of\
-                        #hybrid recommender
-            elif enable_rec[0]==1.0:
-                if recommend_from =='mindplex':
-                    popularity_df = read_frame(Popularity.objects.filter(source='mindplex'))
-                else:
-                    popularity_df = read_frame(Popularity.objects.filter(~Q(source='mindplex')))
-                recommender = PopularityRecommender(popularity_df,articles_df)
-            elif enable_rec[1]==1.0:
-                recommender = ContentBasedRecommender(articles_df)
-            elif enable_rec[2]==1.0:
-                return Response({"Error": "collaborative recommender is not done yet"}) 
-                #TODO create instance of collaborative recommender
-            elif enable_rec[3]==1.0:
-                return Response({"Error": "high quality recommender is not done yet"}) #TODO
-            elif enable_rec[4]==1.0:
-                return Response({"Error": "random recommender is not done yet"}) #TODO
-            else:
-                return Response({"Error": "Unlogical request"}) #TODO
-        elif recommender=='popularity':
-            if recommend_from =='mindplex':
-                popularity_df = read_frame(Popularity.objects.filter(source='mindplex'))
-            else:
-                popularity_df = read_frame(Popularity.objects.filter(~Q(source='mindplex')))
-            recommender = PopularityRecommender(popularity_df,articles_df)
-        elif recommender=='content-based':
-            recommender = ContentBasedRecommender(articles_df)
-
-        if recommend_from=='mindplex':
-            recommendations_df = recommender.recommend_items(user_id=person_id,
-                    recommend_from='mindplex',
-                    items_to_ignore=extractor.get_items_interacted(person_id,
-                                        interactions_df), verbose=verbose)
-        else:
-            recommendations_df = recommender.recommend_items(recommend_from='crawled',
-                    user_id=person_id, items_to_ignore=extractor.get_items_interacted(person_id,
-                                        interactions_df), verbose=verbose)
+        recommendation = Recommendation(recommender, recommend_from)
+        recommendations_df = recommendation.recommend(person_id,self.page_size, verbose)
         recommendations = recommendations_df.to_dict('records')
         result_page = self.paginate_queryset(recommendations, request)
         return self.get_paginated_response(result_page)
@@ -229,12 +156,15 @@ class Relearn(APIView):
             relearn_popularity = True if request.GET['popularity']=='true' else False
             relearn_content_based = True if request.GET['content-based']=='true' else False
             relearn_collaborative = True if request.GET['collaborative']=='true' else False
+            relearn_high_quality = True if request.GET['high-quality']=='true' else False
             if relearn_popularity:
                 popularity_relearn()
             if relearn_content_based:
                 content_based_relearn()
             if relearn_collaborative:
                 collaborative_relearn()
+            if relearn_high_quality:
+                high_quality_relearn()
             return Response({'Relearn poularity':str(relearn_popularity),
                             'Relearn content based':str(relearn_content_based),
                             'Relearn collaborative':str(relearn_collaborative)})
