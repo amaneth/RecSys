@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from recommend.models import Article, Interaction, Setting
+from recommend.models import Article, Interaction, Setting, Reputation
 from django.db.models import Q
 
 class InteractionSerializer(serializers.ModelSerializer):
@@ -105,3 +105,15 @@ class SettingSerializer(serializers.ModelSerializer):
                                             setting_type= validated_data.get('setting_type', None),
                                             defaults= {'setting_value': validated_data.get('setting_value',None)})
         return setting
+
+class ReputationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reputation
+        fields = '__all__'
+
+    def create(self, validated_data):
+        reputation, created = Reputation.objects.update_or_create(community_id= validated_data.\
+                                            get('community_id', None), 
+                                            author_person_id= validated_data.get('author_person_id', None),
+                                            defaults={'offchain': validated_data.get('offchain', None),
+                                                        'categories': validated_data.get('categories', None)})
