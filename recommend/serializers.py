@@ -3,11 +3,13 @@ from recommend.models import Article, Interaction, Setting, Reputation
 from django.db.models import Q
 
 class InteractionSerializer(serializers.ModelSerializer):
+    article = serializers.ReadOnlyField(source='article.id', required=False)
+
     class Meta:
         model = Interaction
         fields = ['person_id','article', 'content_id', 'event_type', 'timestamp','source']
+
     def create(self, validated_data):
-        print("was here for some time")
         event = validated_data.get('event_type', None)
         if event=='unlike' or event == 'dislike':
             q = Interaction.objects.filter(Q(person_id=validated_data.get('person_id'))\
@@ -70,7 +72,18 @@ class InteractionSerializer(serializers.ModelSerializer):
         else:
             return Interaction(**validated_data)
 
+    def validate(self, data):
+        """
+        Check the article being interacted is available
+        """
 
+        try:
+            article_interacted= Article.objects.get(content_id=data['content_id'])
+        except:
+            raise serializers.ValidationError("This Article doesn't exist")
+        data['article']=article_interacted
+
+        return data
 
 
     def get_unique_together_validators(self):
