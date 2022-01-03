@@ -120,6 +120,7 @@ class SettingSerializer(serializers.ModelSerializer):
         return setting
 
 class ReputationSerializer(serializers.ModelSerializer):
+    categories = serializers.JSONField()
     class Meta:
         model = Reputation
         fields = '__all__'
