@@ -1,12 +1,14 @@
 import pandas as pd
 from django.conf import settings
 from recommend.models import Popularity, Interaction, Article, Reputation
+from recommend.serializers import ReputationSerializer
 from sqlalchemy import create_engine
 from celery.utils.log import get_task_logger
 from django.core.cache import cache
 from django_pandas.io import read_frame
 from django.db.models import Q
 
+import requests
 import pickle
 import numpy as np
 import scipy
@@ -36,7 +38,7 @@ loghandle.setFormatter(
     logging.Formatter("%(asctime)s %(message)s"))
 logger.addHandler(loghandle)
 
-
+REPUTATION_API= 'http://api.reputation.icog-labs.com/core/communities/8/users/'
 
 class MlModels:
     def __init__(self, model):
@@ -121,10 +123,7 @@ class MlModels:
                                     'feature_names': tfidf_feature_names
                                  }
         #TODO incremental concept should be implemented here
-        '''with open('itemids.pickle', 'wb') as handle:
-            pickle.dump(self.item_ids, handle, protocol = pickle.HIGHEST_PROTOCOL)
-        sparse.save_npz("tfidf.npz", self.tfidf_matrix)'''
-   
+
 
     def get_item_profile(self, item_id):
         logger.info("building item's profile...")
@@ -159,11 +158,8 @@ class MlModels:
         user_profiles = {}
         for person_id in interactions_indexed_df.index.unique():
             user_profiles[person_id] = self.build_users_profile(person_id, interactions_indexed_df)
-        '''with open('userprofile.pickle', 'wb') as handle:
-            pickle.dump(user_profiles, handle, protocol=pickle.HIGHEST_PROTOCOL)
-            logger.info("Saving the users profile to the database profile is done"+\
-                    str(os.getcwd()))'''
         self.content_based_model_data['user_profiles']= user_profiles
+
         with open('cbmodel.pickle', 'wb') as handle:
             pickle.dump(self.content_based_model_data, handle, protocol= pickle.HIGHEST_PROTOCOL)
             logger.info("Saving the users profile to the database profile is done"+\
@@ -172,9 +168,21 @@ class MlModels:
         logger.debug("Release lock for content-based is  done is :"+ str(unlock))
 
     def build_users_reputation(self):
+        reputation_data = requests.get(REPUTATION_API).json()
+        for data in reputation_data:
+            data['community_id']=data.pop('community')
+            data['author_person_id'] = data.pop('user')
+        reputation_serialized = ReputationSerializer(data=reputation_data, many=True)
+        if reputation_serialized.is_valid(raise_exception=True):
+            reputation_serialized.save()
+            logger.info("Reputation data has saved successfully")
+        
+        #refresh the reputation value and pickle it
+        self.reputations_df = read_frame(Reputation.objects.all())
         communities= self.reputations_df.community_id.unique()
         reputation_model_data={}
         for community in communities:
-            reputation_model_data[community]= self.reputations_df[self.reputations_df['community_id']==community]
+            reputation_model_data[community]= self.reputations_df\
+                    [self.reputations_df['community_id']==community]
         with open('highqualitymodel.pickle', 'wb') as handle:
             pickle.dump(reputation_model_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
