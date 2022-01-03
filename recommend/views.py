@@ -59,6 +59,9 @@ model_params = [openapi.Parameter( 'popularity', in_=openapi.IN_QUERY,
         openapi.Parameter( 'collaborative', in_=openapi.IN_QUERY,
         description='if set true auto relearn for collaborative model will be on',
         type=openapi.TYPE_BOOLEAN, ),
+        openapi.Parameter( 'high-quality', in_=openapi.IN_QUERY,
+        description='if set true auto relearn for high quality model will be on',
+        type=openapi.TYPE_BOOLEAN, ),
         ]
 profile_param = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='The person id', type=openapi.TYPE_INTEGER, ),
@@ -144,6 +147,8 @@ class PostArticles(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 #TODO only relearn if there is a data change in the database
 class Relearn(APIView):
     @swagger_auto_schema(manual_parameters=model_params,security=[],
@@ -163,7 +168,8 @@ class Relearn(APIView):
                 high_quality_relearn()
             return Response({'Relearn poularity':str(relearn_popularity),
                             'Relearn content based':str(relearn_content_based),
-                            'Relearn collaborative':str(relearn_collaborative)})
+                            'Relearn collaborative':str(relearn_collaborative),
+                            'Relearn High Quality': str(relearn_high_quality)})
 
 
 
