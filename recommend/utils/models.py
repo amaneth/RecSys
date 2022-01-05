@@ -1,7 +1,7 @@
 import pandas as pd
 from django.conf import settings
 from recommend.models import Popularity, Interaction, Article, Reputation
-from recommend.serializers import ReputationSerializer
+from recommend.serializers import ReputationSerializer, PopularitySerializer
 from sqlalchemy import create_engine
 from celery.utils.log import get_task_logger
 from django.core.cache import cache
@@ -41,10 +41,16 @@ logger.addHandler(loghandle)
 REPUTATION_API= 'http://api.reputation.icog-labs.com/core/communities/8/users/'
 
 class MlModels:
-    def __init__(self, model):
+    def __init__(self, model, community):
         logger.info("Initializing building models...")
-        self.content_based_model_data={}
-        self.interactions_df = read_frame(Interaction.objects.all())
+        try:
+            with open('cbmodel.pickle', 'rb') as handle:
+                self.content_based_model_data = pickle.load(handle)
+        except FileNotFoundError:
+            self.content_based_model_data = {}
+        self.community = community
+        #get interactions in the community, this includes interactions of the crawled articles in the community
+        self.interactions_df = read_frame(Interaction.objects.filter(community_id=self.community))
         logger.debug("Shape of interactions df : -{0}- ".format(str(self.interactions_df.shape)))
         if model=='content-based':
             self.interactions_df = \
@@ -60,39 +66,38 @@ class MlModels:
                 'comment-good':2.0}
         self.interactions_df['eventStrength'] = self.interactions_df['event_type']\
                 .apply(lambda x: self.event_type_strength[x])
-        self.interactions_df = self.interactions_df.groupby(['content_id', 'person_id', 'source'])\
-                            ['eventStrength'].sum().apply(lambda x : math.log(1+x, 2) if x>=0\
+        self.interactions_df = self.interactions_df.groupby(['content_id', 'person_id', 'source',\
+                'community_id'])['eventStrength'].sum().apply(lambda x : math.log(1+x, 2) if x>=0\
                             else -math.log(1+abs(x), 2) ).reset_index()
         logger.debug("Shape of interactions df after calculating event strenght: -{0}- "\
                 .format(str(self.interactions_df.shape)))
-        self.articles_df = read_frame(Article.objects.all())
-        self.mindplex_articles_df= read_frame(Article.objects.filter(source='mindplex'))
+        #gget articles from its community and the crawled articles(community_id=24), this helps the user profile 
+        # to be prepared from interactions of the user to the crawled articles in its community.
+        self.articles_df = read_frame(Article.objects.filter(Q(community_id=self.community)|Q(community_id=24)))
+        self.mindplex_articles_df= read_frame(Article.objects.filter(source='mindplex',
+                                                community_id=self.community))
         self.crawled_articles_df= read_frame(Article.objects.filter(~Q(source='mindplex')))
         #interaction_train_df = train_test_split(self.interactions_df)                    
         self.interactions_train_df = self.interactions_df
         self.item_ids= self.articles_df['content_id'].tolist()
         self.tfidf_matrix = None
         self.reputations_df = read_frame(Reputation.objects.all())
+
     def popularity(self):
         logger.info("building the popularity model has started")
         self.interactions_df.set_index('person_id', inplace=True)
-        popularity_df = self.interactions_df.groupby(['content_id', 'source'])['eventStrength']\
+        popularity_df = self.interactions_df.groupby(['content_id', 'source', 'community_id'])['eventStrength']\
                 .sum().sort_values(ascending= False).reset_index()
-        logger.debug("Shape of articles in the popularity: -{0}- ".format(str(popularity_df.shape)))
-        user = settings.DATABASES['default']['USER']
-        password = settings.DATABASES['default']['PASSWORD']
-        database_name = settings.DATABASES['default']['NAME']
-        database_url = 'postgresql://{user}:{password}@db:5432/{database_name}'.format(
-        user=user,
-        password=password,
-        database_name=database_name,
-        ) # setting the appropriate connection parameters
-        engine = create_engine(database_url, echo=False)
-
-        popularity_df.to_sql(Popularity._meta.db_table, con=engine, if_exists='replace', index=False) # saving to the database
+        logger.debug("Shape of articles in the popularity: -{0}- ".format(str(popularity_df.columns)))
+        
+        popularity_dict = popularity_df.to_dict(orient='records')
+        popularity_serialized= PopularitySerializer(data=popularity_dict, many=True)
+        if popularity_serialized.is_valid(raise_exception=True):
+            popularity_serialized.save()
+    
         unlock = cache.delete("popularity")
         logger.info("Release lock is  done is :"+ str(unlock))
-    
+
     def tfidf(self):
         logger.info("Building tfidf model..")
         stopwords_list = stopwords.words('english')
@@ -118,7 +123,7 @@ class MlModels:
                                 crawled_articles_df['title'])
         tfidf_by_source= {'mindplex': mindplex_tfidf_matrix,
                 'crawled': crawled_tfidf_matrix}
-        self.content_based_model_data= {'tfidf':tfidf_by_source,
+        self.content_based_model_data[self.community]= {'tfidf':tfidf_by_source,
                                     'ids': article_ids,
                                     'feature_names': tfidf_feature_names
                                  }
@@ -158,7 +163,7 @@ class MlModels:
         user_profiles = {}
         for person_id in interactions_indexed_df.index.unique():
             user_profiles[person_id] = self.build_users_profile(person_id, interactions_indexed_df)
-        self.content_based_model_data['user_profiles']= user_profiles
+        self.content_based_model_data[self.community]['user_profiles']= user_profiles
 
         with open('cbmodel.pickle', 'wb') as handle:
             pickle.dump(self.content_based_model_data, handle, protocol= pickle.HIGHEST_PROTOCOL)
@@ -177,12 +182,15 @@ class MlModels:
             reputation_serialized.save()
             logger.info("Reputation data has saved successfully")
         
-        #refresh the reputation value and pickle it
+        #refresh the reputation value and pickle it for different communities separately
         self.reputations_df = read_frame(Reputation.objects.all())
+        self.reputations_df.sort_values(by=['offchain'], ascending=False, inplace=True)
+        #update for all communites once, not only for the communiity requested
         communities= self.reputations_df.community_id.unique()
         reputation_model_data={}
         for community in communities:
-            reputation_model_data[community]= self.reputations_df\
+            reputation_model_data[str(community)]= self.reputations_df\
                     [self.reputations_df['community_id']==community]
+        logger.info("Reputation model :{}".format(reputation_model_data))
         with open('highqualitymodel.pickle', 'wb') as handle:
             pickle.dump(reputation_model_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
