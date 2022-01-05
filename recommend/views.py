@@ -33,8 +33,10 @@ from drf_yasg.utils import swagger_auto_schema
 # swagger param definations
 recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='The person id', type=openapi.TYPE_STRING, ),
+    openapi.Parameter( 'from', in_=openapi.IN_QUERY,
+    description='Recommend from(crawled/mindplex)', type=openapi.TYPE_STRING, ),
     openapi.Parameter( 'community', in_=openapi.IN_QUERY,
-    description='Recommend from', type=openapi.TYPE_STRING, ),
+    description='community id of the media', type=openapi.TYPE_STRING, ),
     openapi.Parameter( 'page_size', in_=openapi.IN_QUERY, 
     description='Page size of the recommendations', type=openapi.TYPE_INTEGER, ),
     openapi.Parameter( 'page', in_=openapi.IN_QUERY, 
@@ -62,6 +64,9 @@ model_params = [openapi.Parameter( 'popularity', in_=openapi.IN_QUERY,
         openapi.Parameter( 'high-quality', in_=openapi.IN_QUERY,
         description='if set true auto relearn for high quality model will be on',
         type=openapi.TYPE_BOOLEAN, ),
+        openapi.Parameter( 'community', in_=openapi.IN_QUERY,
+        description='The community which relearn is done for',
+        type=openapi.TYPE_INTEGER, ),
         ]
 profile_param = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='The person id', type=openapi.TYPE_INTEGER, ),
@@ -111,10 +116,11 @@ class RecommendArticles(APIView, PageNumberPagination):
         '''
         person_id = request.GET['id']
         self.page_size = int(request.GET['page_size'])
-        recommend_from = request.GET['community']
+        recommend_from = request.GET['from']
         verbose= True if request.GET['verbose']=='true' else False
         recommender = request.GET['recommender']
-        recommendation = Recommendation(recommender, recommend_from)
+        community = request.GET['community']
+        recommendation = Recommendation(recommender, recommend_from, community)
         recommendations_df = recommendation.recommend(person_id,self.page_size, verbose)
         recommendations = recommendations_df.to_dict('records')
         result_page = self.paginate_queryset(recommendations, request)
@@ -158,14 +164,15 @@ class Relearn(APIView):
             relearn_content_based = True if request.GET['content-based']=='true' else False
             relearn_collaborative = True if request.GET['collaborative']=='true' else False
             relearn_high_quality = True if request.GET['high-quality']=='true' else False
+            community = request.GET['community']
             if relearn_popularity:
-                popularity_relearn()
+                popularity_relearn(community)
             if relearn_content_based:
-                content_based_relearn()
+                content_based_relearn(community)
             if relearn_collaborative:
-                collaborative_relearn()
+                collaborative_relearn(community)
             if relearn_high_quality:
-                high_quality_relearn()
+                high_quality_relearn(community)
             return Response({'Relearn poularity':str(relearn_popularity),
                             'Relearn content based':str(relearn_content_based),
                             'Relearn collaborative':str(relearn_collaborative),
