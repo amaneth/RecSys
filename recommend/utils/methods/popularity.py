@@ -5,9 +5,9 @@ from django.db.models import Q
 class PopularityRecommender:
     MODEL_NAME = 'Popularity'
     
-    def __init__(self, recommend_from):
+    def __init__(self, recommend_from, community):
         if recommend_from=='mindplex':
-            self.popularity_df = read_frame(Popularity.objects.filter(source='mindplex'))
+            self.popularity_df = read_frame(Popularity.objects.filter(source='mindplex', community_id=community))
         else:
             self.popularity_df = read_frame(Popularity.objects.filter(~Q(source='mindplex')))
         
