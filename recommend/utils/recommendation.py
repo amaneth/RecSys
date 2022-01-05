@@ -9,10 +9,11 @@ from django.db.models import Q
 
 class Recommendation:
 
-    def __init__(self, recommender, recommend_from='mindplex'):
+    def __init__(self, recommender, recommend_from, community):
         
         self.recommender=recommender
         self.recommend_from=recommend_from
+        self.community = community
         self.popularity_weight = float(Setting.objects.get(section_name='weight', setting_name='popularity')\
                 .setting_value)
         self.content_based_weight = float(Setting.objects.get(section_name='weight',
@@ -24,14 +25,16 @@ class Recommendation:
         self.random_weight = float(Setting.objects.get(section_name='weight',
                                                     setting_name='random').setting_value)
         if recommend_from=='mindplex':
-            self.articles_df = read_frame(Article.objects.filter(source='mindplex'))
-            self.interactions_df = read_frame(Interaction.objects.filter(source='mindplex'))
+            self.articles_df = read_frame(Article.objects.filter(source='mindplex', community_id=self.community))
+            self.interactions_df = read_frame(Interaction.objects.filter(source='mindplex',
+                                                                            community_id=self.community))
         else:
             self.articles_df = read_frame(Article.objects.filter(~Q(source='mindplex')))
             self.interactions_df = read_frame(Interaction.objects.filter(~Q(source='mindplex')))
    
     def recommend(self, user_id,page_size, verbose=False):
         articles_to_ignore = self.get_items_interacted(user_id)
+        logger.info("articles to ignore: {} ".format(articles_to_ignore))
         if self.recommender=='default':
             recommenders_weight = [self.popularity_weight, self.content_based_weight,
                               self.collaborative_weight, self.high_quality_weight, self.random_weight]
@@ -43,9 +46,9 @@ class Recommendation:
                 return None
             # TODO a hybrid recommender
             elif recommenders_weight[0]==1.0:
-                recommender = PopularityRecommender(recommend_from)
+                recommender = PopularityRecommender(self.recommend_from, self.community)
             elif recommenders_weight[1]==1.0:
-                recommender = ContentBasedRecommender(recommend_from)
+                recommender = ContentBasedRecommender(self.recommend_from, self.community)
             elif recommenders_weight[2]==1.0:
                 return None
                 #TODO a collaborative recommender
@@ -56,13 +59,13 @@ class Recommendation:
             else:
                 return None #TODO
         elif self.recommender=='popularity':
-            recommender = PopularityRecommender(self.recommend_from)
+            recommender = PopularityRecommender(self.recommend_from, self.community)
             recommendations_df = recommender.recommend_articles(user_id, articles_to_ignore)
         elif self.recommender=='content-based':
-            recommender = ContentBasedRecommender(self.recommend_from)
+            recommender = ContentBasedRecommender(self.recommend_from, self.community)
             recommendations_df = recommender.recommend_articles(user_id, articles_to_ignore)
         elif self.recommender == 'high-quality':
-            recommender = ReputationalRecommender() 
+            recommender = ReputationalRecommender(self.community) 
             recommendations_df = recommender.recommend_articles(user_id, articles_to_ignore,page_size)
         else:
             return None
@@ -83,10 +86,11 @@ class Recommendation:
         return recommendations_df
 
     def get_items_interacted(self, person_id):
+        self.interactions_df.set_index('person_id', inplace=True) 
         try:
             interacted_articles = self.interactions_df.loc[person_id]['content_id']
             return set(interacted_articles if type(interacted_articles) \
-                    is pd.Series else [interacted_items])
+                    is pd.Series else [interacted_articles])
         except KeyError:
             return set()
         # retrun empty set if the user has no interaction so far
