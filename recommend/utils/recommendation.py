@@ -47,13 +47,16 @@ class Recommendation:
             # TODO a hybrid recommender
             elif recommenders_weight[0]==1.0:
                 recommender = PopularityRecommender(self.recommend_from, self.community)
+                recommendations_df = recommender.recommend_articles(user_id, articles_to_ignore)
             elif recommenders_weight[1]==1.0:
                 recommender = ContentBasedRecommender(self.recommend_from, self.community)
+                recommendations_df = recommender.recommend_articles(user_id, articles_to_ignore)
             elif recommenders_weight[2]==1.0:
                 return None
                 #TODO a collaborative recommender
             elif recommenders_weight[3]==1.0:
-                return None #TODO
+                recommender = ReputationalRecommender(self.community) 
+                recommendations_df = recommender.recommend_articles(user_id, articles_to_ignore,page_size)
             elif recommenders_weight[4]==1.0:
                 return None #TODO
             else:
