@@ -9,12 +9,13 @@ import math
 class ReputationalRecommender:
 
     MODEL_NAME = 'High-Quality'
-    def __init__(self):
+    def __init__(self, community):
+        self.community = community
         #self.off_chain= Reputation.objects.get
         with open('highqualitymodel.pickle', 'rb') as handle:
             self.high_quality_model = pickle.load(handle)
-        self.articles_df = read_frame(Article.objects.all())
-        self.popularity_df = read_frame(Popularity.objects.all())
+        self.articles_df = read_frame(Article.objects.filter(community_id=self.community))
+        self.popularity_df = read_frame(Popularity.objects.filter(community_id=self.community))
     def get_model_name(self):
         return self.MODEL_NAME
     def get_article_distribution(self, required, offchains, available_articles):
@@ -43,11 +44,24 @@ class ReputationalRecommender:
             #print("author recommended articles: {}".format(str(author_recommended_articles_df)))
         return author_articles    #return distribution
 
-    def recommend_articles(self, user_id, items_to_ignore,page_size=10, community=8, topn=1000):
-        reputations_df=self.high_quality_model[community]
+    def recommend_articles(self, user_id, items_to_ignore,page_size=10, topn=1000):
+        reputations_df=self.high_quality_model[self.community]
+        print("Reputations:{}".format(reputations_df))
         offchains=reputations_df.set_index('author_person_id')['offchain'].to_dict()
         available_articles = self.articles_df[~self.articles_df['content_id']\
                 .isin(items_to_ignore)]['author_person_id'].value_counts().to_dict()
+        logger.info("available articles: {}".format(available_articles))
+        logger.info("offchains: {}".format(offchains))
+        #remove authors with offchain value but has no articles written by them 
+        for key in list(offchains):
+            if not key in available_articles:
+                offchains.pop(key)
+        #remove availabe articles with no offchain value given
+        for key in list(available_articles):
+            if not key in offchains:
+                available_articles.pop(key)
+        logger.info("available articles: {}".format(available_articles))
+        logger.info("offchains: {}".format(offchains))
         recommendations_df = pd.DataFrame()
         author_articles= self.get_authors_articles(items_to_ignore)
         number_of_recommended_articles = min(topn, sum(available_articles.values()))
@@ -55,7 +69,11 @@ class ReputationalRecommender:
         logger.info("high quality recommendation number of pages: {}".format(available_articles))
         for page in range(number_of_pages):
             distributed_amounts = self.get_article_distribution(page_size, offchains, available_articles)
-            for author, amount in distributed_amounts.items():
+            #sort them by their offchain value, sothat article by higher reputation will come to the front
+            distributed_amounts_sorted = dict(sorted(distributed_amounts.items(), key=lambda item:item[1]))
+            logger.info("Distributed amounts of article based on reputation weight: {}"\
+                    .format(distributed_amounts_sorted))
+            for author, amount in distributed_amounts_sorted.items():
                 author_recommended_articles_df= author_articles[author].iloc[:amount]
                 author_articles[author].drop(author_articles[author]\
                         .index[[x for x in range(amount)]], inplace=True)
