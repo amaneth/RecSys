@@ -12,8 +12,8 @@ class Article(models.Model):
     content = models.TextField()
     source = models.CharField(max_length=40, default='mindplex')
     top_image = models.CharField(max_length=400, blank='True',default='')
-    #def __str__(self):
-    #    return str(self.id)
+    community_id = models.IntegerField(default=24)
+
 class Interaction(models.Model):
     reactions= (('like', 'like'),
             ('react-positive','react-positive'),
@@ -37,15 +37,17 @@ class Interaction(models.Model):
     event_type = models.CharField(max_length=30, default='', choices=reactions)
     timestamp = models.IntegerField(default=0)
     source = models.CharField(max_length=40, default='')
+    community_id = models.IntegerField(default=24)
 
     class Meta:
         unique_together= ('person_id','content_id','event_type',)
 
 
 class Popularity(models.Model):
-    content_id = models.CharField(primary_key=True, max_length=60, default='')
+    community_id= models.IntegerField(default=24)
+    content_id = models.CharField(max_length=60, default='')
     source = models.CharField(max_length=40, default='')
-    eventStrength = models.IntegerField()
+    eventStrength = models.FloatField()
 
 class Setting(models.Model):
     section_name = models.CharField(max_length=60)
@@ -54,7 +56,7 @@ class Setting(models.Model):
     setting_type = models.IntegerField()
 
 class Reputation(models.Model):
-    community_id= models.IntegerField()
+    community_id= models.IntegerField(default=24)
     author_person_id = models.CharField(max_length=40)
     offchain= models.FloatField()
     categories= models.CharField(max_length=400)
