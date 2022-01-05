@@ -1,13 +1,12 @@
 from rest_framework import serializers
-from recommend.models import Article, Interaction, Setting, Reputation
+from recommend.models import Article, Interaction, Setting, Reputation, Popularity
 from django.db.models import Q
-
 class InteractionSerializer(serializers.ModelSerializer):
     article = serializers.ReadOnlyField(source='article.id', required=False)
 
     class Meta:
         model = Interaction
-        fields = ['person_id','article', 'content_id', 'event_type', 'timestamp','source']
+        fields = ['person_id','article', 'content_id', 'event_type', 'timestamp','source', 'community_id']
 
     def create(self, validated_data):
         event = validated_data.get('event_type', None)
@@ -59,7 +58,8 @@ class InteractionSerializer(serializers.ModelSerializer):
                 'comment-average', 'comment-good', 'view','follow']:
             article= validated_data.get('article',None)
             interaction, created = Interaction.objects\
-                        .update_or_create(article= validated_data.get('article', None),
+                        .update_or_create(community_id = validated_data.get('community_id', None),
+                                        article= validated_data.get('article', None),
                                         event_type=validated_data.get('event_type', None),
                                         person_id=validated_data.get('person_id', None),
                                         content_id=validated_data.get('content_id', None),
@@ -78,9 +78,10 @@ class InteractionSerializer(serializers.ModelSerializer):
         """
 
         try:
-            article_interacted= Article.objects.get(content_id=data['content_id'])
+            article_interacted= Article.objects.get(content_id=data['content_id'],
+                                    community_id=data['community_id'])
         except:
-            raise serializers.ValidationError("This Article doesn't exist")
+            raise serializers.ValidationError("This Article doesn't exist in this community")
         data['article']=article_interacted
 
         return data
@@ -94,9 +95,10 @@ class ArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Article
         fields = ['timestamp', 'content_id', 'author_person_id', 'author_country', 'url', 'title',
-                'content','source', 'top_image']
+                'content','source', 'top_image', 'community_id']
     def create(self, validated_data):
         article, created = Article.objects.update_or_create(content_id= validated_data.get('content_id', None),
+                                                    community_id= validated_data.get('community_id', None),
                             defaults={'timestamp': validated_data.get('timestamp', None),
                                     'author_person_id': validated_data.get('author_person_id', None),
                                     'author_country':validated_data.get('author_country', None),
@@ -131,3 +133,15 @@ class ReputationSerializer(serializers.ModelSerializer):
                                             author_person_id= validated_data.get('author_person_id', None),
                                             defaults={'offchain': validated_data.get('offchain', None),
                                                         'categories': validated_data.get('categories', None)})
+class PopularitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Popularity
+        fields = '__all__'
+ 
+    def create(self, validated_data):
+        popularity,created = Popularity.objects.update_or_create(community_id = validated_data.\
+                                                    get('community_id', None),
+                                                    content_id = validated_data.get('content_id', None),
+                                                    defaults = {'source': validated_data.get('source', None),
+                                                            'eventStrength': validated_data\
+                                                                    .get('eventStrength', None)})
