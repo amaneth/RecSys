@@ -80,6 +80,7 @@ class Recommendation:
                                                               'title',
                                                               'url',
                                                               'content',
+                                                              'source',
                                                               'top_image']], how = 'left',
                                                           left_on = 'content_id',
                                                           right_on = 'content_id')
