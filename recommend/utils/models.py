@@ -38,7 +38,7 @@ loghandle.setFormatter(
     logging.Formatter("%(asctime)s %(message)s"))
 logger.addHandler(loghandle)
 
-REPUTATION_API= 'http://api.reputation.icog-labs.com/core/communities/8/users/'
+REPUTATION_API= 'http://api.reputation.icog-labs.com/core/communities/'
 
 class MlModels:
     def __init__(self, model, community):
@@ -173,7 +173,7 @@ class MlModels:
         logger.debug("Release lock for content-based is  done is :"+ str(unlock))
 
     def build_users_reputation(self):
-        reputation_data = requests.get(REPUTATION_API).json()
+        reputation_data = requests.get(REPUTATION_API+str(self.community)+'/users/').json()
         for data in reputation_data:
             data['community_id']=data.pop('community')
             data['author_person_id'] = data.pop('user')
@@ -185,11 +185,9 @@ class MlModels:
         #refresh the reputation value and pickle it for different communities separately
         self.reputations_df = read_frame(Reputation.objects.all())
         self.reputations_df.sort_values(by=['offchain'], ascending=False, inplace=True)
-        #update for all communites once, not only for the communiity requested
-        communities= self.reputations_df.community_id.unique()
+        #update for the communiity requested
         reputation_model_data={}
-        for community in communities:
-            reputation_model_data[str(community)]= self.reputations_df\
+        reputation_model_data[str(self.community)]= self.reputations_df\
                     [self.reputations_df['community_id']==community]
         logger.info("Reputation model :{}".format(reputation_model_data))
         with open('highqualitymodel.pickle', 'wb') as handle:
