@@ -17,6 +17,6 @@ class PopularityRecommender:
         # Recommend the more popular itmes that the user hasn't seen yet.
         recommendations_df = self.popularity_df[~self.popularity_df['content_id']\
                                 .isin(articles_to_ignore)] \
-                                .sort_values('eventStrength', ascending=False) 
+                                .sort_values('eventStrength', ascending=False)[['content_id', 'eventStrength']] 
         
         return recommendations_df

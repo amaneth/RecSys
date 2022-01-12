@@ -41,8 +41,10 @@ class ContentBasedRecommender:
             logger.debug("The shape of the user pirofiles is: {}"\
                     .format(str(self.model[self.community]['user_profiles'][person_id].shape)))
         except KeyError:
-            dummy_profile = np.array([np.zeros(len(list(self.model[self.community]['user_profiles']\
-                    .values())[0][0]))])
+            #length = len(list(self.model[self.community]['user_profiles']\
+                    #.values())[0][0])
+            number_of_features = self.model[self.community]['tfidf'][self.source].shape[1]
+            dummy_profile = np.array([np.zeros(number_of_features)])
             cosine_similarities = cosine_similarity(dummy_profile, self.model[self.community]['tfidf'][self.source])
             logger.info("User is getting some random content-based recommendation\
                     because it has no previous history")

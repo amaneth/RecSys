@@ -78,8 +78,8 @@ class InteractionSerializer(serializers.ModelSerializer):
         """
 
         try:
-            article_interacted= Article.objects.get(content_id=data['content_id'],
-                                    community_id=data['community_id'])
+            article_interacted= Article.objects.get(Q(content_id=data['content_id'])\
+                    &(Q(community_id=data['community_id'])|Q(community_id=24)))
         except:
             raise serializers.ValidationError("This Article doesn't exist in this community")
         data['article']=article_interacted
