@@ -187,15 +187,19 @@ class AutoRelearn(APIView):
             start_popularity = True if request.GET['popularity']=='true' else False
             start_content_based = True if request.GET['content-based']=='true' else False
             start_collaborative = True if request.GET['collaborative']=='true' else False
+            start_high_quality = True if request.GET['high-quality']=='true' else False
             schedule_popularity = PeriodicTask.objects.get(name='relearn popularity')
             schedule_content_based = PeriodicTask.objects.get(name='relearn content based')
             schedule_collaborative = PeriodicTask.objects.get(name='relearn collaborative')
+            schedule_high_quality = PeriodicTask.objects.get(name='relearn high quality')
             schedule_popularity.enabled = start_popularity
             schedule_content_based.enabled = start_content_based
             schedule_collaborative.enabled = start_collaborative
+            schedule_high_quality.enabled = start_high_quality
             schedule_popularity.save()
             schedule_content_based.save()
             schedule_collaborative.save()
+            schedule_high_quality.save()
             return Response({'enable poularity':str(start_popularity),
                             'enable content based':str(start_content_based), 
                             'enable collaborative':str(start_collaborative)})
