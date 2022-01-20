@@ -8,16 +8,7 @@ import logging
 import logging.handlers as loghandlers
 import numpy as np
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-loghandle = loghandlers.TimedRotatingFileHandler(
-                        filename="RecSys.log",
-                                        when='D', interval=1, backupCount=7,
-                                                        encoding="utf-8")
-loghandle.setFormatter(
-            logging.Formatter("%(asctime)s %(message)s"))
-logger.addHandler(loghandle)
-
+from recommend.utils.models import logger
 
 
 class ContentBasedRecommender:
