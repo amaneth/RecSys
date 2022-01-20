@@ -48,14 +48,25 @@ class MlModels:
                 self.content_based_model_data = pickle.load(handle)
         except FileNotFoundError:
             self.content_based_model_data = {}
+        # note that self.community is string, you should change it to int in data frame extraction as
+        #it int in the database model, maybe some work to do changing both to int or string 
         self.community = community
+        self.articles_df = read_frame(Article.objects.filter(Q(community_id=self.community)|Q(community_id=24)))
         #get interactions in the community, this includes interactions of the crawled articles in the community
-        self.interactions_df = read_frame(Interaction.objects.filter(community_id=self.community))
-        logger.debug("Shape of interactions df : -{0}- ".format(str(self.interactions_df.shape)))
+        interactions_df = read_frame(Interaction.objects.filter(community_id=self.community))
+        community_articles_df = self.articles_df[self.articles_df['community_id']==int(self.community)]
+        community_articles_df.rename(columns={'author_person_id':'person_id'}, inplace=True)
+        self.interactions_df = pd.concat([community_articles_df, interactions_df], ignore_index=True)\
+                                    [['person_id','content_id', 'event_type', 'source', 'community_id']]\
+                                    .fillna('post')
+        logger.debug("Shape of interactions df : -{0}- ".format(self.interactions_df.shape))
+        #ignore react-negative and dislike interactions for content_based as user dislikes an article doesn't 
+        # say about user don't want to be recommended that article
         if model=='content-based':
             self.interactions_df = \
                     self.interactions_df[(self.interactions_df['event_type']!='dislike')\
                 & (self.interactions_df['event_type']!='react-negative')]
+
         self.event_type_strength= {'view': 0.5,
                 'like':1.0,
                 'dislike':-1.0,
@@ -63,7 +74,8 @@ class MlModels:
                 'react-negative':-1.5,
                 'comment-best':3.0,
                 'comment-average':2.5, 
-                'comment-good':2.0}
+                'comment-good':2.0,
+                'post':0.0}
         self.interactions_df['eventStrength'] = self.interactions_df['event_type']\
                 .apply(lambda x: self.event_type_strength[x])
         self.interactions_df = self.interactions_df.groupby(['content_id', 'person_id', 'source',\
@@ -71,9 +83,8 @@ class MlModels:
                             else -math.log(1+abs(x), 2) ).reset_index()
         logger.debug("Shape of interactions df after calculating event strenght: -{0}- "\
                 .format(str(self.interactions_df.shape)))
-        #gget articles from its community and the crawled articles(community_id=24), this helps the user profile 
+        #get articles from its community and the crawled articles(community_id=24), this helps the user profile 
         # to be prepared from interactions of the user to the crawled articles in its community.
-        self.articles_df = read_frame(Article.objects.filter(Q(community_id=self.community)|Q(community_id=24)))
         self.mindplex_articles_df= read_frame(Article.objects.filter(source='mindplex',
                                                 community_id=self.community))
         self.crawled_articles_df= read_frame(Article.objects.filter(~Q(source='mindplex')))
@@ -183,12 +194,14 @@ class MlModels:
             logger.info("Reputation data has saved successfully")
         
         #refresh the reputation value and pickle it for different communities separately
-        self.reputations_df = read_frame(Reputation.objects.all())
+        #self.reputations_df = read_frame(Reputation.objects.all())
         self.reputations_df.sort_values(by=['offchain'], ascending=False, inplace=True)
         #update for the communiity requested
         reputation_model_data={}
-        reputation_model_data[str(self.community)]= self.reputations_df\
-                    [self.reputations_df['community_id']==community]
-        logger.info("Reputation model :{}".format(reputation_model_data))
+        reputation_model_data[self.community]= self.reputations_df[self.reputations_df['community_id']==int(self.community)]
+        logger.info("Reputation model :{}".format(reputation_model_data[self.community].to_dict('records')))
         with open('highqualitymodel.pickle', 'wb') as handle:
             pickle.dump(reputation_model_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        unlock = cache.delete("high-quality")
+        logger.debug("Release lock for content-based is  done is :"+ str(unlock))
