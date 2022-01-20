@@ -22,12 +22,15 @@ class ReputationalRecommender:
         distributed_amounts = {}
         total_offchains = sum(offchains.values())
         if sum(available_articles.values())<=required:
-            return available_articles
+            for author,offchain in zip(available_articles.keys(), offchains.values()):
+                distributed_amounts[author]= (available_articles[author], offchain)
+            return distributed_amounts
+
         for indx, offchain in offchains.items():
             weight = offchain / total_offchains
             distributed_amount = round(weight * required)
             distributed_amount = min(distributed_amount, available_articles[indx])
-            distributed_amounts[indx]=distributed_amount
+            distributed_amounts[indx]=(distributed_amount, offchain)
             total_offchains -= offchain
             required -= distributed_amount
         return distributed_amounts
@@ -46,8 +49,8 @@ class ReputationalRecommender:
 
     def recommend_articles(self, user_id, items_to_ignore,page_size=10, topn=1000):
         reputations_df=self.high_quality_model[self.community]
-        print("Reputations:{}".format(reputations_df))
         offchains=reputations_df.set_index('author_person_id')['offchain'].to_dict()
+        #author with the number of articles he wrote
         available_articles = self.articles_df[~self.articles_df['content_id']\
                 .isin(items_to_ignore)]['author_person_id'].value_counts().to_dict()
         logger.info("available articles: {}".format(available_articles))
@@ -56,24 +59,28 @@ class ReputationalRecommender:
         for key in list(offchains):
             if not key in available_articles:
                 offchains.pop(key)
-        #remove availabe articles with no offchain value given
+        #remove availabe articles with no author with offchain value given
         for key in list(available_articles):
             if not key in offchains:
                 available_articles.pop(key)
         logger.info("available articles: {}".format(available_articles))
         logger.info("offchains: {}".format(offchains))
         recommendations_df = pd.DataFrame()
+        # author with the article's content_id he wrote
         author_articles= self.get_authors_articles(items_to_ignore)
+        logger.info("author and the articles it wrote: {}".format(author_articles))
         number_of_recommended_articles = min(topn, sum(available_articles.values()))
         number_of_pages= math.ceil(number_of_recommended_articles/page_size)
-        logger.info("high quality recommendation number of pages: {}".format(available_articles))
+        logger.info("high quality recommendation number of pages: {}".format(number_of_pages))
+        logger.info("high quality recommendation available articles: {}".format(available_articles))
         for page in range(number_of_pages):
             distributed_amounts = self.get_article_distribution(page_size, offchains, available_articles)
-            #sort them by their offchain value, sothat article by higher reputation will come to the front
-            distributed_amounts_sorted = dict(sorted(distributed_amounts.items(), key=lambda item:item[1]))
             logger.info("Distributed amounts of article based on reputation weight: {}"\
-                    .format(distributed_amounts_sorted))
-            for author, amount in distributed_amounts_sorted.items():
+                    .format(distributed_amounts))
+            #sort them by their offchain value, sothat article by higher reputation  author will come to the front
+            distributed_amounts_sorted = dict(sorted(distributed_amounts.items(),
+                                                    key=lambda item : item[1][1], reverse=True))
+            for author, (amount,offchain) in distributed_amounts_sorted.items():
                 author_recommended_articles_df= author_articles[author].iloc[:amount]
                 author_articles[author].drop(author_articles[author]\
                         .index[[x for x in range(amount)]], inplace=True)
