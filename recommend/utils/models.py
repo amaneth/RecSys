@@ -106,8 +106,9 @@ class MlModels:
         if popularity_serialized.is_valid(raise_exception=True):
             popularity_serialized.save()
     
-        unlock = cache.delete("popularity")
-        logger.info("Release lock is  done is :"+ str(unlock))
+        unlock = cache.delete("popularity"+str(self.community))
+        logger.info("Release lock "+("is not ", "is ")[unlock]+"done for :{}"\
+                .format("popularity"+str(self.community)))
 
     def tfidf(self):
         logger.info("Building tfidf model..")
@@ -180,7 +181,7 @@ class MlModels:
             pickle.dump(self.content_based_model_data, handle, protocol= pickle.HIGHEST_PROTOCOL)
             logger.info("Saving the users profile to the database profile is done"+\
                     str(os.getcwd()))
-        unlock = cache.delete("content-based")
+        unlock = cache.delete("content-based"+self.community)
         logger.debug("Release lock for content-based is  done is :"+ str(unlock))
 
     def build_users_reputation(self):
@@ -203,5 +204,5 @@ class MlModels:
         with open('highqualitymodel.pickle', 'wb') as handle:
             pickle.dump(reputation_model_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        unlock = cache.delete("high-quality")
+        unlock = cache.delete("high-quality"+self.community)
         logger.debug("Release lock for content-based is  done is :"+ str(unlock))
