@@ -3,7 +3,7 @@ from django.db.models.signals import post_migrate
 
 def schedule_relearn(sender, **kwargs):
     from django_celery_beat.models import PeriodicTask, IntervalSchedule
-    schedule, created = IntervalSchedule.objects.get_or_create(every=300,
+    schedule, created = IntervalSchedule.objects.get_or_create(every=10,
                 period=IntervalSchedule.SECONDS,
                 )
     PeriodicTask.objects.update_or_create(
@@ -19,6 +19,10 @@ def schedule_relearn(sender, **kwargs):
                 defaults={'task':'recommend.tasks.collaborative_relearn', 'interval':schedule},
                 )
 
+    PeriodicTask.objects.update_or_create(
+                name='relearn high quality',
+                defaults={'task':'recommend.tasks.high_quality_relearn', 'interval':schedule},
+                )
 def recommendation_default_configuration(sender, **kwargs):
     from recommend.models import Setting
     Setting.objects.update_or_create(section_name='weight', setting_name='popularity',
