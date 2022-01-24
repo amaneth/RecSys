@@ -23,6 +23,7 @@ from recommend.utils.models import MlModels, logger
 from recommend.tasks import popularity_relearn, content_based_relearn, collaborative_relearn, high_quality_relearn
 
 import json
+import ast
 import pandas as pd
 import pickle
 from django_pandas.io import read_frame
@@ -188,14 +189,53 @@ class AutoRelearn(APIView):
             start_content_based = True if request.GET['content-based']=='true' else False
             start_collaborative = True if request.GET['collaborative']=='true' else False
             start_high_quality = True if request.GET['high-quality']=='true' else False
+            community = int(request.GET['community'])
+
             schedule_popularity = PeriodicTask.objects.get(name='relearn popularity')
             schedule_content_based = PeriodicTask.objects.get(name='relearn content based')
             schedule_collaborative = PeriodicTask.objects.get(name='relearn collaborative')
             schedule_high_quality = PeriodicTask.objects.get(name='relearn high quality')
-            schedule_popularity.enabled = start_popularity
+            #schedule_popularity.enabled = start_popularity
             schedule_content_based.enabled = start_content_based
             schedule_collaborative.enabled = start_collaborative
             schedule_high_quality.enabled = start_high_quality
+
+            popularity_orignal_args= json.loads(schedule_popularity.args)
+            if start_popularity:
+                popularity_orignal_args.append(community)
+            else:
+                popularity_orignal_args.remove(community)
+            schedule_popularity.args = list(set(popularity_orignal_args))
+            logger.debug("popularity relearn community list:::{}".format(schedule_popularity.args))
+
+
+
+            content_based_orignal_args= json.loads(schedule_content_based.args)
+            if start_content_based:
+                content_based_orignal_args.append(community)
+            else:
+                content_based_orignal_args.remove(community)
+            schedule_content_based.args = list(set(content_based_orignal_args))
+            logger.debug("content based relearn community list:::{}".format(schedule_content_based.args))
+
+
+            collaborative_orignal_args= json.loads(schedule_collaborative.args)
+            if start_collaborative:
+                collaborative_orignal_args.append(community)
+            else:
+                collaborative_orignal_args.remove(community)
+            schedule_collaborative.args = list(set(collaborative_orignal_args))
+            logger.debug("collaborative relearn community list:::{}".format(schedule_collaborative.args))
+
+
+            high_quality_orignal_args= json.loads(schedule_high_quality.args)
+            if start_high_quality:
+                high_quality_orignal_args.append(community)
+            else:
+                high_quality_orignal_args.remove(community)
+            schedule_high_quality.args = list(set(high_quality_orignal_args))
+            logger.debug("high quality relearn community list:::{}".format(schedule_high_quality.args))
+
             schedule_popularity.save()
             schedule_content_based.save()
             schedule_collaborative.save()
