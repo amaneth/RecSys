@@ -28,11 +28,15 @@ services:
     image: redis:alpine
   celery:
     build: .
+    volumes:
+      - .:/recommender
     command: celery -A recommender worker --loglevel=debug
     depends_on:
        - redis
   celery-beat:
     build: .
+    volumes:
+      - .:/recommender
     command: >
        bash -c
          "python manage.py makemigrations && python manage.py migrate &&
@@ -44,6 +48,8 @@ services:
        - memcached
   memcached:
     image: memcached
+    volumes:
+      - .:/recommender
     ports:
        - "11213:11211"
     command: memcached -vv
