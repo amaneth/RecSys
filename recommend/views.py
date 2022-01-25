@@ -5,7 +5,6 @@ from recommend.models import Article
 from recommend.models import Popularity
 from recommend.models import Interaction
 from recommend.models import Setting
-from django_celery_beat.models import PeriodicTask, IntervalSchedule
 
 from recommend.serializers import ArticleSerializer, InteractionSerializer, SettingSerializer
 from django.http import Http404
@@ -21,6 +20,8 @@ from recommend.utils.methods.contentive import ContentBasedRecommender
 from recommend.utils.recommendation import Recommendation
 from recommend.utils.models import MlModels, logger
 from recommend.tasks import popularity_relearn, content_based_relearn, collaborative_relearn, high_quality_relearn
+from recommend.commons import autorelearn
+from recommend.commons import is_logical_weight
 
 import json
 import ast
@@ -31,7 +32,7 @@ from django_pandas.io import read_frame
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
-# swagger param definations
+# swagger param api definations
 recommend_params = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='The person id', type=openapi.TYPE_STRING, ),
     openapi.Parameter( 'from', in_=openapi.IN_QUERY,
@@ -69,6 +70,20 @@ model_params = [openapi.Parameter( 'popularity', in_=openapi.IN_QUERY,
         description='The community which relearn is done for',
         type=openapi.TYPE_INTEGER, ),
         ]
+
+model_param= {
+            'popularity': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='The popularity model relearn'),
+            'content_based': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='The content based relearn'),
+            'collaborative': openapi.Schema(type=openapi.TYPE_BOOLEAN,\
+                    description='The collaborative relearn'),
+            'high_quality': openapi.Schema(type=openapi.TYPE_BOOLEAN,\
+                    description='The high quality relearn'),
+            'random': openapi.Schema(type=openapi.TYPE_BOOLEAN,\
+                    description='The random relearn'),
+            'community_id': openapi.Schema(type=openapi.TYPE_INTEGER,
+                description='The community id of the media')}
+
+
 profile_param = [openapi.Parameter( 'id', in_=openapi.IN_QUERY,
     description='The person id', type=openapi.TYPE_INTEGER, ),
     openapi.Parameter( 'top', in_=openapi.IN_QUERY,
@@ -182,67 +197,21 @@ class Relearn(APIView):
 
 
 class AutoRelearn(APIView):
-    @swagger_auto_schema(manual_parameters=model_params,security=[],
-            responses={'400': 'Validation Error','200': ArticleSerializer})
-    def get(self, request):
-            start_popularity = True if request.GET['popularity']=='true' else False
-            start_content_based = True if request.GET['content-based']=='true' else False
-            start_collaborative = True if request.GET['collaborative']=='true' else False
-            start_high_quality = True if request.GET['high-quality']=='true' else False
-            community = int(request.GET['community'])
 
-            schedule_popularity = PeriodicTask.objects.get(name='relearn popularity')
-            schedule_content_based = PeriodicTask.objects.get(name='relearn content based')
-            schedule_collaborative = PeriodicTask.objects.get(name='relearn collaborative')
-            schedule_high_quality = PeriodicTask.objects.get(name='relearn high quality')
-            #schedule_popularity.enabled = start_popularity
-            schedule_content_based.enabled = start_content_based
-            schedule_collaborative.enabled = start_collaborative
-            schedule_high_quality.enabled = start_high_quality
+    @swagger_auto_schema(request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties=model_param))
 
-            popularity_orignal_args= json.loads(schedule_popularity.args)
-            if start_popularity:
-                popularity_orignal_args.append(community)
-            else:
-                popularity_orignal_args.remove(community)
-            schedule_popularity.args = list(set(popularity_orignal_args))
-            logger.debug("popularity relearn community list:::{}".format(schedule_popularity.args))
-
-
-
-            content_based_orignal_args= json.loads(schedule_content_based.args)
-            if start_content_based:
-                content_based_orignal_args.append(community)
-            else:
-                content_based_orignal_args.remove(community)
-            schedule_content_based.args = list(set(content_based_orignal_args))
-            logger.debug("content based relearn community list:::{}".format(schedule_content_based.args))
-
-
-            collaborative_orignal_args= json.loads(schedule_collaborative.args)
-            if start_collaborative:
-                collaborative_orignal_args.append(community)
-            else:
-                collaborative_orignal_args.remove(community)
-            schedule_collaborative.args = list(set(collaborative_orignal_args))
-            logger.debug("collaborative relearn community list:::{}".format(schedule_collaborative.args))
-
-
-            high_quality_orignal_args= json.loads(schedule_high_quality.args)
-            if start_high_quality:
-                high_quality_orignal_args.append(community)
-            else:
-                high_quality_orignal_args.remove(community)
-            schedule_high_quality.args = list(set(high_quality_orignal_args))
-            logger.debug("high quality relearn community list:::{}".format(schedule_high_quality.args))
-
-            schedule_popularity.save()
-            schedule_content_based.save()
-            schedule_collaborative.save()
-            schedule_high_quality.save()
-            return Response({'enable poularity':str(start_popularity),
-                            'enable content based':str(start_content_based), 
-                            'enable collaborative':str(start_collaborative)})
+    def post(self, request, format=None):
+            start_popularity = request.data['popularity']
+            start_content_based = request.data['content_based']
+            start_collaborative = request.data['collaborative']
+            start_high_quality =  request.data['high_quality']
+            start_random = request.data['random']
+            community = request.data['community_id']
+            relearn = autorelearn(community, start_popularity, start_content_based,
+                                start_collaborative, start_high_quality, start_random)
+            return Response(relearn)
 
 class ShowUserProfile(APIView):
 
@@ -271,8 +240,7 @@ class RecommendationSettings(APIView):
             weights = {'popularity': request['popularity'], 'content_based':request['content_based'],
                     'collaborative':request['collaborative'], 'high_quality':request['high_quality'],
                     'random':request['random']}
-            correct_setting= all(float(x)<=1.0 and float(x)>=0.0 for x in list(weights.values())) and \
-                    sum([float(y) for y in list(weights.values())])==1.0
+            correct_setting = is_logical_weight(weights)
             if not correct_setting:
                 return Response({"Error": "The setting data is not logical"}, status= status.HTTP_400_BAD_REQUEST)
             for key,value in weights.items():
